@@ -3685,14 +3685,17 @@ end
 do
 local ring=Instance.new("Frame");ring.Name="ParryFov";ring.BackgroundTransparency=1
 ring.Size=UDim2.fromScale(1,1);ring.Position=UDim2.fromOffset(0,0);ring.Visible=false;ring.Parent=crossGui
-local segments={};local segmentCount=72
+local segments={};local segmentCount=144
 for i=1,segmentCount do
     local segment=Instance.new("Frame");segment.Name="ParryRadiusSegment";segment.BorderSizePixel=0
     segment.AnchorPoint=Vector2.new(0,0.5);segment.Visible=false;segment.BackgroundColor3=Color3.fromRGB(15,10,25)
     segment.Parent=ring
+    local edgeRound=Instance.new("UICorner");edgeRound.CornerRadius=UDim.new(0,2);edgeRound.Parent=segment
     local core=Instance.new("Frame");core.Name="Core";core.BorderSizePixel=0
     core.AnchorPoint=Vector2.new(0,0.5);core.Position=UDim2.new(0,0,0.5,0);core.Size=UDim2.new(1,0,0,2)
-    core.Parent=segment;segments[i]={segment=segment,core=core}
+    core.Parent=segment
+    local coreRound=Instance.new("UICorner");coreRound.CornerRadius=UDim.new(0,1);coreRound.Parent=core
+    segments[i]={segment=segment,core=core}
 end
 state.parryCircle=ring
 local line=Instance.new("Frame");line.Name="HiddenTargetLine";line.AnchorPoint=Vector2.new(0,0.5)
