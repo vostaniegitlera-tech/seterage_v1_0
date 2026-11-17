@@ -750,7 +750,7 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     updateCamera()
 end)
 label("Пресеты имитируют растянутые 4:3 и 16:10.\nИнтерфейс и разрешение экрана не меняются.", 522, 38)
-toggle("perks", "Перки киллера", 686)
+toggle("perks", "Перк ман инфо", 686)
 label("Только доступные клиенту данные.\nСкрытые перки и их эффекты не угадываются.", 730, 40)
 label("Подсветка ищет команду Killer/Killers.\nАвто скиллчеки требуют проверки в игре.", 782, 60)
 
@@ -784,7 +784,7 @@ local function overlayLabel(parent, text, y, height)
     return item
 end
 perkBox = overlay("KillerPerks", 280, 184, UDim2.new(0, 12, 0, 12), Vector2.new(0, 0))
-overlayLabel(perkBox, "Перки убийцы (данные клиента)", 4, 24)
+overlayLabel(perkBox, "Перки маньяка", 4, 24)
 local perkScroll = Instance.new("ScrollingFrame")
 perkScroll.Position = UDim2.fromOffset(8, 32)
 perkScroll.Size = UDim2.new(1, -16, 1, -40)
@@ -809,7 +809,7 @@ local function equippedPerks(who)
         value = value:sub(1, 180)
         if not seen[value] and #entries < 12 then
             seen[value] = true
-            table.insert(entries, value .. " [" .. origin .. "]")
+            table.insert(entries, value)
         end
     end
     for _, root in ipairs({who, who.Character}) do
@@ -818,8 +818,15 @@ local function equippedPerks(who)
                 if attribute:match("^EquippedPerk%d+$") or attribute:match("^Perk[1-4]$") then
                     add(value, "атрибут " .. attribute)
                 elseif attribute == "EquippedPerks" and type(value) == "string" then
-                    -- Display serialized data literally; do not guess its format.
-                    add(value, "атрибут EquippedPerks")
+                    local ok,decoded=pcall(function()return game:GetService("HttpService"):JSONDecode(value)end)
+                    if ok and type(decoded)=="table"then
+                        local before=#entries
+                        for _,entry in pairs(decoded)do
+                            if type(entry)=="string"then add(entry,"EquippedPerks")
+                            elseif type(entry)=="table"then add(entry.name or entry.Name or entry.perk or entry.PerkName,"EquippedPerks")end
+                        end
+                        if #entries==before then add(value,"EquippedPerks")end
+                    else add(value, "атрибут EquippedPerks")end
                 end
             end
             local roots = {root}
@@ -847,6 +854,32 @@ local function equippedPerks(who)
     end
     table.sort(entries)
     return entries
+end
+state.perkDiagnostics=function()
+    local result={}
+    for _,who in ipairs(Players:GetPlayers())do if who~=player and isKiller(who)then
+        local row={name=who.Name,team=who.Team and who.Team.Name,roots={}}
+        for _,root in ipairs({who,who.Character})do if root then
+            local entry={path=root:GetFullName(),attributes={},objects={}}
+            for name,value in pairs(root:GetAttributes())do
+                local key=name:lower()
+                if key:find("perk",1,true)or key:find("loadout",1,true)then entry.attributes[name]=tostring(value)end
+            end
+            for _,item in ipairs(root:GetDescendants())do
+                local key=item.Name:lower()
+                if key:find("perk",1,true)or key:find("loadout",1,true)then
+                    local itemInfo={path=item:GetFullName(),class=item.ClassName,attributes={}}
+                    for name,value in pairs(item:GetAttributes())do itemInfo.attributes[name]=tostring(value)end
+                    if item:IsA("StringValue")or item:IsA("IntValue")or item:IsA("NumberValue")or item:IsA("BoolValue")then itemInfo.value=tostring(item.Value)end
+                    entry.objects[#entry.objects+1]=itemInfo
+                    if #entry.objects>=40 then break end
+                end
+            end
+            row.roots[#row.roots+1]=entry
+        end end
+        result[#result+1]=row
+    end end
+    return result
 end
 updateOverlays = function()
     perkBox.Visible = state.perks
@@ -4336,7 +4369,8 @@ state.diagnosticReport=function()
         animations=state.vaultObservations or {},skillTrace=state.skillTrace,windowESP=state.windowEspDiagnostics and state.windowEspDiagnostics()or nil,
         parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,
         audio=state.audioDiagnostics and state.audioDiagnostics()or nil,
-        nextRound=state.nextRoundDiagnostics and state.nextRoundDiagnostics()or nil,objects={}}
+        nextRound=state.nextRoundDiagnostics and state.nextRoundDiagnostics()or nil,
+        killerPerks=state.perkDiagnostics and state.perkDiagnostics()or nil,objects={}}
     local camera=Workspace.CurrentCamera
     if camera then report.camera={viewport={camera.ViewportSize.X,camera.ViewportSize.Y},fov=camera.FieldOfView}
         pcall(function()report.camera.viewStretch=camera.ViewStretch end)
