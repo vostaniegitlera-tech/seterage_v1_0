@@ -1861,7 +1861,7 @@ local function validateConfig(text)
             if mode~="BuiltIn"and mode~="Custom"then error("Неверный режим звука")end
             local preset=sound.preset or "Ping"
             if not ({Ping=true,High=true,Low=true,Snap=true,SnapHigh=true,Bass=true,BassLow=true,Splash=true,SplashHigh=true})[preset]then error("Неверный встроенный звук")end
-            values.customSounds[id]={id=sound.id,volume=sound.volume,sources=checkedIds(sound.sources or {}),mode=mode,preset=preset}
+            values.customSounds[id]={id=sound.id,volume=sound.volume,sources=checkedIds(sound.sources or {}),mode="BuiltIn",preset=preset}
         else values.customSounds[id]=current end
     end
     values.collapsedGroups={}
@@ -2790,15 +2790,12 @@ end
 local function play(id,preview)
     local config=state.customSounds[id]
     if not config then return false,"Неизвестное событие."end
-    local builtIn=config.mode=="BuiltIn"
-    local asset=config.id
-    if not builtIn and(not asset or asset=="")then return false,"Укажи ID своего аудио."end
     local count=0;for _ in pairs(active)do count=count+1 end
     if count>=8 then return false,"Слишком много звуков одновременно."end
     local sound=Instance.new("Sound");sound.Name="VDHelperCustomAudio"
     local preset=presets[config.preset or "Ping"]or presets.Ping
-    sound.SoundId=builtIn and preset.asset or("rbxassetid://"..asset)
-    sound.PlaybackSpeed=builtIn and preset.speed or 1
+    sound.SoundId=preset.asset
+    sound.PlaybackSpeed=preset.speed
     sound.Volume=config.volume;sound.Looped=false
     sound.Parent=folder
     active[sound]={id=id}
@@ -2807,7 +2804,7 @@ local function play(id,preview)
     if not ok then destroyClip(sound);return false,"Звук недоступен."end
     task.delay(5,function()
         if state.alive and active[sound]and not sound.IsLoaded then
-            audioInfo.Text="Аудио не загрузилось. Проверь ID и доступ Roblox."
+            audioInfo.Text="Встроенный звук не загрузился."
             destroyClip(sound)
         end
     end)
@@ -2867,7 +2864,6 @@ local function watch(sound)
         if not id or os.clock()-(lastEvent[id]or -math.huge)<0.15 then return end
         lastEvent[id]=os.clock()
         recentSource[id]=tostring(sound.SoundId):match("%d+")
-        local mode=state.customSounds[id].mode
         local ok,reason,clip=play(id)
         if ok then
             if clip.IsLoaded then muteOriginal(sound,id)
@@ -2907,28 +2903,12 @@ local controls={}
 for _,spec in ipairs(specs)do
     local id,y=spec.id,spec.y
     toggle(spec.field,spec.title,y)
-    local modeButton
-    modeButton=button("Звук: Встроенный",y+34,function()
-        local value=state.customSounds[id].mode
-        state.customSounds[id].mode=value=="BuiltIn"and "Custom"or "BuiltIn"
-        state.refreshAudioUI();if state.applyStyle then state.applyStyle()end
-    end)
-    modeButton.Name="SoundMode_"..id
     local presetButton=button("Встроенный: Чистый сигнал",y+36,function()
         local index=1
         for i,name in ipairs(presetOrder)do if name==state.customSounds[id].preset then index=i end end
         state.customSounds[id].preset=presetOrder[index%#presetOrder+1];state.refreshAudioUI()
     end)
     presetButton.Name="SoundPreset_"..id
-    label("ID кастомного аудио",y+24+18,24)
-    local assetY=y+70
-    local asset=textSetting(assetY,"",function(value)
-        local number=value:match("^%s*(%d+)%s*$")or value:match("^%s*rbxassetid://(%d+)%s*$")
-        if value:match("^%s*$")then number=""end
-        if number==nil or #number>20 then status.Text="Нужен ID аудио Roblox.";return end
-        state.customSounds[id].id=number;return number
-    end)
-    asset.Name="SoundAsset_"..id
     label("Громкость",y+84+14,24)
     local volumeY=y+110
     numberInput(volumeY,1,0,2,function(v)state.customSounds[id].volume=v end)
@@ -2948,7 +2928,7 @@ for _,spec in ipairs(specs)do
         state.customSounds[id].sources=ids;return value
     end)
     source.Name="SoundSource_"..id
-    controls[id]={asset=assetY,source=sourceY,volume=volumeY,mode=modeButton,preset=presetButton}
+    controls[id]={source=sourceY,volume=volumeY,preset=presetButton}
 end
 local ownButton=button("Только мои события",8904,function()
     state.soundOwnOnly=not state.soundOwnOnly;if state.applyStyle then state.applyStyle()end
@@ -2956,10 +2936,7 @@ end)
 state.uiOptions.soundOwnOnly={button=ownButton,text="Только мои события"}
 state.refreshAudioUI=function()
     for id,c in pairs(controls)do
-        local names={BuiltIn="Встроенный",Custom="Свой ID"}
-        c.mode.Text="Звук: "..names[state.customSounds[id].mode]
         c.preset.Text="Встроенный: "..(presets[state.customSounds[id].preset or "Ping"]or presets.Ping).name
-        textControls[c.asset].sync(state.customSounds[id].id)
         local ids={};for value in pairs(state.customSounds[id].sources)do ids[#ids+1]=value end;table.sort(ids)
         textControls[c.source].sync(table.concat(ids,","))
         numericControls[c.volume].set(state.customSounds[id].volume)
