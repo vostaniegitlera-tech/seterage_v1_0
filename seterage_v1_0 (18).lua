@@ -3391,6 +3391,30 @@ local ownsVaultShift=false
 local vaultTargetDuration=.51 -- requested duration of the walking-vault animation
 local vaultTargetSpeed=1.4166667/vaultTargetDuration -- observed walking animation length / target
 local vaultMotion=nil
+local vaultFlow=nil
+local function restoreVaultFlow()
+    local entry=vaultFlow;vaultFlow=nil
+    if not entry then return end
+    if entry.connection then entry.connection:Disconnect()end
+    if not entry.changed and entry.char.Parent and entry.char:GetAttribute("Flowstate")==true then
+        pcall(function()entry.writing=true;entry.char:SetAttribute("Flowstate",entry.original);entry.writing=false end)
+    end
+end
+local function prepareVaultFlow(char)
+    if vaultFlow and vaultFlow.char~=char then restoreVaultFlow()end
+    if vaultFlow then return end
+    local value=char:GetAttribute("Flowstate")
+    if value==true or(value~=nil and type(value)~="boolean")then return end
+    local entry={char=char,original=value,writing=true,changed=false}
+    local ok=pcall(function()entry.connection=char:GetAttributeChangedSignal("Flowstate"):Connect(function()
+        if not entry.writing and char:GetAttribute("Flowstate")~=true then entry.changed=true end
+    end)end)
+    if not ok then return end
+    vaultFlow=entry
+    local applied=pcall(function()char:SetAttribute("Flowstate",true)end)
+    entry.writing=false
+    if not applied then restoreVaultFlow()end
+end
 local windowParts={}
 local vaultHistory={}
 state.vaultRuntime={history=vaultHistory}
@@ -3411,12 +3435,12 @@ local function restoreVaultShift()
 end
 local function prepareVault()
     state.vaultNearWindow=false;state.vaultSprint=false
-    if not state.fastVault then return end
-    if state.isDowned()or Input:GetFocusedTextBox()or state.capturingBind then vaultStatus("blocked by state or menu",nil,0);return end
+    if not state.fastVault then restoreVaultFlow();return end
+    if state.isDowned()or Input:GetFocusedTextBox()or state.capturingBind then restoreVaultFlow();vaultStatus("blocked by state or menu",nil,0);return end
     local char=player.Character;local root=char and char:FindFirstChild("HumanoidRootPart")
-    if not root or root.Anchored then vaultStatus("missing or anchored character",nil,0);return end
+    if not root or root.Anchored then restoreVaultFlow();vaultStatus("missing or anchored character",nil,0);return end
     local action=char:GetAttribute("ActionState")
-    if type(action)=="string"and action~=""and not action:lower():find("vault",1,true)then vaultStatus("other action: "..action,nil,0);return end
+    if type(action)=="string"and action~=""and not action:lower():find("vault",1,true)then restoreVaultFlow();vaultStatus("other action: "..action,nil,0);return end
     local nearest,count=nil,0
     for _,part in ipairs(state.getWindowAnchors and state.getWindowAnchors()or {})do
         if part.Parent then
@@ -3427,11 +3451,13 @@ local function prepareVault()
     if nearest and nearest<=10 then
             state.vaultNearWindow=true
             state.vaultSprint=Input.TouchEnabled and not Input.KeyboardEnabled
+            prepareVaultFlow(char)
             vaultStatus("near window",nearest,count);return
     end
-    vaultStatus(count==0 and "no indexed windows"or "window out of range",nearest,count)
+    restoreVaultFlow();vaultStatus(count==0 and "no indexed windows"or "window out of range",nearest,count)
 end
 local function restoreVault()
+    restoreVaultFlow()
     vaultMotion=nil
     state.restoreGameRate("vault")
     restoreVaultShift()
