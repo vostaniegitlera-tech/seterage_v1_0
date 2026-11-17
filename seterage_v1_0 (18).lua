@@ -1328,7 +1328,6 @@ state.setParry = function(enabled)
 end
 label("АВТО ДАГГЕР / ПАРИРОВАНИЕ", 1340, 24)
 toggle("parry", "Автопарирование", 1370)
-toggle("abyssAutoCrouch", "Автоприсед от M2 Abysswalker · тест", 1370.5)
 do
 local watchers,elapsed,lastInput={},0,0
 local function clearWatchers()
@@ -1767,6 +1766,7 @@ label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
 toggle("antiKnock","God Mode",2440)
 toggle("fastVault","Fast Vault · эксперимент",2490)
 toggle("spikeVault","Перелаз через шипы · эксперимент",2493)
+toggle("abyssAutoCrouch","Автоприсед от M2 Abysswalker · тест",2493.5)
 label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
 toggle("vaultSpeedEnabled","Vault Speed",2495)
 label("Скорость перелаза: 1–20",2496,24)
@@ -4793,7 +4793,7 @@ local shortLabels={
     [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
 }
 local function route(y)
-    if y==2490 or y==2493 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
+    if y==2490 or y==2493 or y==2493.5 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
     if y>=7000 and y<9300 then return "survival"end
     if y>=3600 and y<=3900 then return "survival"end
     if y>=6000 and y<7000 then return "esp"end
