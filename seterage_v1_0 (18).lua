@@ -3444,6 +3444,32 @@ end
 local windowParts={}
 local vaultHistory={}
 state.vaultRuntime={history=vaultHistory}
+local vaultEvaluator=nil
+local function restoreVaultEvaluator()
+    local entry=vaultEvaluator;vaultEvaluator=nil
+    if entry then pcall(function()if entry.module.evaluate==entry.wrapper then entry.module.evaluate=entry.original end end)end
+end
+local function installVaultEvaluator()
+    if vaultEvaluator then return end
+    local ok,module=pcall(function()
+        return require(game:GetService("ReplicatedStorage").Modules.Survivors.SurvivorVault)
+    end)
+    if not ok or type(module)~="table"or type(module.evaluate)~="function"then
+        state.vaultRuntime.evaluator={installed=false,error="module unavailable"};return
+    end
+    local original=module.evaluate
+    local wrapper=function(samples,context)
+        if state.alive and state.fastVault and state.vaultNearWindow and not state.isDowned()
+            and not isKiller(player)and type(context)=="table"and context.blocked==false then
+            state.vaultRuntime.evaluator.triggered=true
+            return true,"ready"
+        end
+        return original(samples,context)
+    end
+    local installed,err=pcall(function()module.evaluate=wrapper end)
+    state.vaultRuntime.evaluator={installed=installed,error=not installed and tostring(err)or nil}
+    if installed then vaultEvaluator={module=module,original=original,wrapper=wrapper}end
+end
 local function vaultStatus(reason,distance,count)
     local runtime=state.vaultRuntime
     runtime.reason=reason;runtime.nearestStuds=distance;runtime.windows=count
@@ -3461,7 +3487,8 @@ local function restoreVaultShift()
 end
 local function prepareVault()
     state.vaultNearWindow=false;state.vaultSprint=false
-    if not state.fastVault then restoreVaultFlow();return end
+    if not state.fastVault then restoreVaultEvaluator();restoreVaultFlow();return end
+    installVaultEvaluator()
     if state.isDowned()or Input:GetFocusedTextBox()or state.capturingBind then restoreVaultFlow();vaultStatus("blocked by state or menu",nil,0);return end
     local char=player.Character;local root=char and char:FindFirstChild("HumanoidRootPart")
     if not root or root.Anchored then restoreVaultFlow();vaultStatus("missing or anchored character",nil,0);return end
@@ -3483,6 +3510,7 @@ local function prepareVault()
     restoreVaultFlow();vaultStatus(count==0 and "no indexed windows"or "window out of range",nearest,count)
 end
 local function restoreVault()
+    restoreVaultEvaluator()
     if finesseTrack then pcall(function()finesseTrack:Stop();finesseTrack:Destroy()end);finesseTrack=nil end
     restoreVaultFlow()
     vaultMotion=nil
