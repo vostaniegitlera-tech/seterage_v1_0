@@ -2903,9 +2903,13 @@ end
 do
 floatingMenu.Name="SeterageLauncher"
 floatingMenu.Size=UDim2.fromOffset(48,48)
-floatingMenu.Text="S"
-local launcherOutline=Instance.new("UIStroke");launcherOutline.Thickness=1.5;launcherOutline.Transparency=.2;launcherOutline.Parent=floatingMenu
-local launcherGradient=Instance.new("UIGradient");launcherGradient.Rotation=45;launcherGradient.Parent=floatingMenu
+floatingMenu.Text=""
+local launcherOutline=Instance.new("UIStroke");launcherOutline.Thickness=1;launcherOutline.Transparency=.65;launcherOutline.Parent=floatingMenu
+local launcherMark=Instance.new("TextLabel");launcherMark.Name="LauncherMark"
+launcherMark.BackgroundTransparency=1;launcherMark.Size=UDim2.fromScale(1,1)
+launcherMark.Text="SETE\nRAGE";launcherMark.TextColor3=Color3.new(1,1,1)
+launcherMark.Font=Enum.Font.GothamBlack;launcherMark.TextSize=13;launcherMark.Rotation=-15
+launcherMark.ZIndex=floatingMenu.ZIndex+1;launcherMark.Parent=floatingMenu
 local badge=Instance.new("Frame");badge.Name="SeterageBrand"
 badge.Position=UDim2.fromOffset(14,8);badge.Size=UDim2.fromOffset(28,28)
 badge.BorderSizePixel=0;badge.Active=true;badge.Parent=panel
@@ -2924,10 +2928,8 @@ state.updateLogo=function()
     badge.BackgroundColor3=accent
     badgeGradient.Color=ColorSequence.new(Color3.new(1,1,1),Color3.fromRGB(135,125,185))
     mark.TextColor3=Color3.fromRGB(255,255,255);mark.Font=Enum.Font.GothamBlack
-    floatingMenu.BackgroundColor3=accent
-    launcherGradient.Color=ColorSequence.new(Color3.new(1,1,1),Color3.fromRGB(125,115,175))
-    launcherOutline.Color=accent:Lerp(Color3.new(1,1,1),.45)
-    floatingMenu.TextColor3=Color3.fromRGB(255,255,255);floatingMenu.Font=Enum.Font.GothamBlack;floatingMenu.TextSize=23
+    floatingMenu.BackgroundColor3=Color3.fromRGB(16,16,21)
+    launcherOutline.Color=Color3.fromRGB(135,135,145)
     floatingMenu.Visible=not state.menuVisible
     title.Position=UDim2.fromOffset(54,8);title.Size=UDim2.new(1,-150,0,32)
     if state.applyHudPositions then state.applyHudPositions()end
