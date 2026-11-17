@@ -3500,9 +3500,12 @@ local function resetShaders()
 end
 state.resetPresentation=function()restoreVault();restoreVaultSpeed();resetShaders()end
 local function vault(track)
-    if not state.fastVault or state.isDowned()or isKiller(player)then return end
     local animation=track.Animation
     local id=animation and tostring(animation.AnimationId):match("%d+")
+    if id=="126081405469607"then
+        state.vaultRuntime.check={fastVault=state.fastVault,downed=state.isDowned(),killer=isKiller(player),playing=track.IsPlaying,speed=track.Speed,tracked=tracks[track]~=nil}
+    end
+    if not state.fastVault or state.isDowned()or isKiller(player)then return end
     -- Only the exact walking-vault animation observed in the user's report.
     if id~="126081405469607"or not track.IsPlaying or tracks[track]then return end
     local speed=track.Speed
@@ -3564,6 +3567,7 @@ connect(RunService.Heartbeat,function()
 end)
 local function updateVault()
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
+    state.vaultRuntime.update={alive=state.alive,fastVault=state.fastVault,killer=isKiller(player),downed=state.isDowned(),humanoid=hum~=nil,health=hum and hum.Health}
     if not state.fastVault or isKiller(player)or state.isDowned()or not hum or hum.Health<=0 then restoreVault();return end
     local current=hum:FindFirstChildOfClass("Animator")
     if current~=animator then
