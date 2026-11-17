@@ -3909,6 +3909,27 @@ local function read(names)
         if item and item:IsA("ObjectValue")and item.Value then return item.Value.Name end
     end end
 end
+local function bestKillerChance()
+    local best,candidates=nil,{}
+    for _,who in ipairs(Players:GetPlayers())do
+        local chance=tonumber(who:GetAttribute("KillerChance"))
+        if who:GetAttribute("AllowKiller")==true and chance and chance>0 then
+            if not best or chance>best then best=chance;candidates={}end
+            if chance==best then candidates[#candidates+1]=who end
+        end
+    end
+    if not best then return nil end
+    table.sort(candidates,function(a,b)return a.Name:lower()<b.Name:lower()end)
+    local names={}
+    for i=1,math.min(3,#candidates)do
+        local who=candidates[i];local selected=who:GetAttribute("SelectedKiller")
+        local name=who.DisplayName or who.Name
+        if type(selected)=="string"and selected~=""then name=name.." · "..selected end
+        names[#names+1]=name
+    end
+    if #candidates>3 then names[#names+1]="ещё "..(#candidates-3)end
+    return "Наибольший шанс ("..tostring(best).."): "..table.concat(names,", ")
+end
 state.nextRoundDiagnostics=function()
     local report={candidates={}}
     for _,root in ipairs({ReplicatedStorage,Workspace,player.PlayerGui})do
@@ -3951,10 +3972,10 @@ connect(RunService.Heartbeat,function(dt)
     local showKiller=showBoth or state.nextRoundKiller
     state.nextRoundHud.Visible=showMap or showKiller
     if not showMap and not showKiller then text.Text="Следующий раунд: выключено.";return end
-    local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})or "нет данных"
+    local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})
     local map=read({"NextMap","NextMapName","UpcomingMap"})or "нет данных"
     local lines={}
-    if showKiller then lines[#lines+1]="Киллер: "..killer end
+    if showKiller then lines[#lines+1]=killer and("Киллер: "..killer)or bestKillerChance()or "Киллер: нет данных"end
     if showMap then lines[#lines+1]="Карта: "..map end
     local value=table.concat(lines,"\n")
     text.Text="Данные игры\n"..value
