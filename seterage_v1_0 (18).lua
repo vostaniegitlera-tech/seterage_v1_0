@@ -907,6 +907,7 @@ state.cleanup = function()
     state.alive = false
     if state.resetVaultObserver then pcall(state.resetVaultObserver)end
     if state.resetSpikeVault then pcall(state.resetSpikeVault)end
+    if state.resetJerkTool then pcall(state.resetJerkTool)end
     if state.resetUtilities then pcall(state.resetUtilities)end
     if state.resetSurvival then pcall(state.resetSurvival)end
     if state.resetSprint then pcall(state.resetSprint)end
@@ -1335,6 +1336,7 @@ numberInput(1810, 0.2, 0.2, 5, function(v) state.parryCooldown = v end)
 label("Только известные анимации атак; не все убийцы.\nНужен экипированный даггер. Проверь ввод в игре.", 1852, 44)
 local function disableAll()
     if state.resetSpikeVault then state.resetSpikeVault()end
+    if state.resetJerkTool then state.resetJerkTool()end
     if state.resetUtilities then state.resetUtilities()end
     if state.resetSurvival then state.resetSurvival()end
     if state.resetSprint then state.resetSprint()end
@@ -3592,6 +3594,60 @@ connect(RunService.Heartbeat,function()
     if player.Character~=emoteCharacter or not hum or hum.Health<=0 then stopEmote()end
 end)
 
+end
+
+-- Local R6 tool using the two animation assets from Universal-Jerk-Off.
+do
+local tool,enabled=nil,false
+local tracks={}
+local function stopToolAnimations()
+    for _,track in ipairs(tracks)do pcall(function()track:Stop(.1);track:Destroy()end)end
+    tracks={}
+end
+state.resetJerkTool=function()
+    enabled=false;stopToolAnimations()
+    if tool then pcall(function()tool:Destroy()end);tool=nil end
+end
+local function giveTool()
+    if not state.alive or not enabled then return end
+    if tool and tool.Parent then return end
+    local backpack=player:FindFirstChildOfClass("Backpack")
+    if not backpack then status.Text="Рюкзак пока недоступен.";return end
+    tool=Instance.new("Tool");tool.Name="Jerk Off";tool.RequiresHandle=false;tool.CanBeDropped=false
+    tool.Equipped:Connect(function()
+        stopToolAnimations()
+        local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
+        local animator=hum and hum:FindFirstChildOfClass("Animator")
+        if not hum or hum.RigType~=Enum.HumanoidRigType.R6 or not animator then
+            status.Text="Jerk Off: нужна модель R6 с Animator.";return
+        end
+        for index,id in ipairs({"99198989","168086975"})do
+            local animation=Instance.new("Animation");animation.AnimationId="rbxassetid://"..id
+            local ok,track=pcall(function()return animator:LoadAnimation(animation)end)
+            animation:Destroy()
+            if not ok or not track then
+                stopToolAnimations();status.Text="Не удалось загрузить анимацию Jerk Off.";return
+            end
+            track.Priority=Enum.AnimationPriority.Action;track.Looped=index==1
+            tracks[#tracks+1]=track
+            local played=pcall(function()track:Play(.1)end)
+            if not played then stopToolAnimations();status.Text="Не удалось запустить Jerk Off.";return end
+        end
+        status.Text="Jerk Off: анимация запущена локально."
+    end)
+    tool.Unequipped:Connect(stopToolAnimations)
+    tool.Parent=backpack
+    status.Text="Jerk Off добавлен в рюкзак."
+end
+button("Добавить Jerk Off в рюкзак",9690,function()enabled=true;giveTool()end)
+connect(player.CharacterAdded,function()
+    stopToolAnimations()
+    if tool then pcall(function()tool:Destroy()end);tool=nil end
+    if enabled then task.spawn(function()
+        player:WaitForChild("Backpack",5)
+        giveTool()
+    end)end
+end)
 end
 
 -- Local world styling, user background and conservative vault animation adapter.
