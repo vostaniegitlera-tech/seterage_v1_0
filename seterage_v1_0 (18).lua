@@ -894,15 +894,37 @@ updateOverlays = function()
     perkBox.Visible = state.perks
     if not state.perks then return end
     local rows, killerCount = {}, 0
+    local results=game:GetService("ReplicatedStorage"):FindFirstChild("MatchResults")
+    local resultRows={}
+    if results and results:GetAttribute("Ready")==true then
+        for _,entry in ipairs(results:GetChildren())do
+            if entry:GetAttribute("IsKiller")==true then
+                local raw=entry:GetAttribute("Perks")
+                local ok,perks=pcall(function()return game:GetService("HttpService"):JSONDecode(raw)end)
+                local names={}
+                if ok and type(perks)=="table"then
+                    for _,perk in ipairs(perks)do
+                        if type(perk)=="table" and type(perk.name)=="string" and perk.name~="" then
+                            names[#names+1]=perk.name..(type(perk.level)=="number" and (" · ур. "..perk.level) or "")
+                        end
+                    end
+                end
+                if #names>0 then
+                    resultRows[#resultRows+1]=tostring(entry:GetAttribute("Username") or entry.Name).." — результаты завершённого матча\n"..table.concat(names,"\n")
+                end
+            end
+        end
+    end
     for _, who in ipairs(Players:GetPlayers()) do
         if who ~= player and isKiller(who) then
             killerCount = killerCount + 1
             local values = equippedPerks(who)
             table.insert(rows, who.DisplayName .. " (@" .. who.Name .. ")")
-            table.insert(rows, #values > 0 and table.concat(values, "\n") or "Нет данных о перках.")
+            table.insert(rows, #values > 0 and table.concat(values, "\n") or "Во время матча данные о перках недоступны.")
         end
     end
-    perkText.Text = killerCount > 0 and table.concat(rows, "\n\n") or "Киллер не найден."
+    for _,row in ipairs(resultRows)do rows[#rows+1]=row end
+    perkText.Text = #rows > 0 and table.concat(rows, "\n\n") or "Нет данных о перках."
 end
 
 local setMenuVisible
