@@ -42,7 +42,7 @@ end
 local state = {
     alive = true, esp = false,
     trapMode="Perfect", showHiddenFov=false, showParryFov=false, showTargetLine=false,
-    fastVault=false, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
+    fastVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
     moonForward=false,moonBackward=false,moonForwardBind=Enum.KeyCode.Unknown,moonBackwardBind=Enum.KeyCode.Unknown,
     emoteId="507770239",emoteLoop=false,emoteName="Wave",emoteBind=Enum.KeyCode.Unknown,
     noSlowdown=false,autoSelfHeal=false,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
@@ -1622,6 +1622,9 @@ label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
 toggle("antiKnock","Режим бога (Anti Knock)",2440)
 toggle("fastVault","Fast Vault · эксперимент",2490)
 label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
+toggle("vaultSpeedEnabled","Vault Speed",2495)
+label("Скорость перелаза: 1–20",2496,24)
+numberInput(2497,1,1,20,function(v)state.vaultSpeedValue=v;if state.updateVaultSpeed then state.updateVaultSpeed()end end)
 label("Движение в нокдауне. Предметы, ремонт и перелаз не разблокируются.",2482,44)
 toggle("antiBlind","Anti Blind",2534)
 label("Скрывает эффекты с именем Blind.\nЕсли VD использует другие имена, потребуется адаптация.",2576,44)
@@ -1668,7 +1671,7 @@ local schemaNumbers={
     crossSize={2,40,1020},uiScale={0.6,1.5},
     parryRadius={2,25,1440},faceSensitivity={-1,1,1510},parryDelay={0,0.5,1740},
     parryCooldown={0.2,5,1810},breakMultiplier={1,10,2200},
-    hiddenFov={35,400,2826},hiddenStrength={1,40,2896},
+    hiddenFov={35,400,2826},hiddenStrength={1,40,2896},vaultSpeedValue={1,20,2497},
     espRange={10,1500,4320},
     uiWidth={420,1200},uiHeight={320,1000},sideWidth={88,160},
     uiTextScale={0.85,1.3},uiRadius={0,20},menuX={0,1},menuY={0,1},
@@ -3391,6 +3394,28 @@ local ownsVaultShift=false
 local vaultTargetDuration=.51 -- requested duration of the walking-vault animation
 local vaultTargetSpeed=1.4166667/vaultTargetDuration -- observed walking animation length / target
 local vaultMotion=nil
+local vaultSpeedEntry=nil
+local function restoreVaultSpeed()
+    local entry=vaultSpeedEntry;vaultSpeedEntry=nil
+    if entry and entry.char.Parent then pcall(function()
+        if entry.char:GetAttribute("vaultspeed")==entry.applied then entry.char:SetAttribute("vaultspeed",entry.original)end
+    end)end
+end
+state.updateVaultSpeed=function()
+    local char=player.Character
+    if not state.alive or not state.vaultSpeedEnabled or not char then restoreVaultSpeed();return end
+    if vaultSpeedEntry and vaultSpeedEntry.char~=char then restoreVaultSpeed()end
+    if not vaultSpeedEntry then vaultSpeedEntry={char=char,original=char:GetAttribute("vaultspeed")}end
+    local value=state.vaultSpeedValue
+    if vaultSpeedEntry.applied==value then return end
+    local ok=pcall(function()char:SetAttribute("vaultspeed",value)end)
+    if ok then vaultSpeedEntry.applied=value end
+end
+local vaultSpeedElapsed=0
+connect(RunService.Heartbeat,function(dt)
+    vaultSpeedElapsed=vaultSpeedElapsed+dt;if vaultSpeedElapsed<.2 then return end;vaultSpeedElapsed=0
+    state.updateVaultSpeed()
+end)
 local vaultFlow=nil
 local function restoreVaultFlow()
     local entry=vaultFlow;vaultFlow=nil
@@ -3471,7 +3496,7 @@ end
 local function resetShaders()
     for _,effect in ipairs(effects)do pcall(function()effect:Destroy()end)end;effects={};appliedShader=nil
 end
-state.resetPresentation=function()restoreVault();resetShaders()end
+state.resetPresentation=function()restoreVault();restoreVaultSpeed();resetShaders()end
 local function vault(track)
     if not state.fastVault or state.isDowned()or isKiller(player)then return end
     local animation=track.Animation
@@ -4151,7 +4176,7 @@ local shortLabels={
     [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
 }
 local function route(y)
-    if y==2490 or y==2494 then return "survival"end
+    if y==2490 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
     if y>=7000 and y<9300 then return "survival"end
     if y>=3600 and y<=3900 then return "survival"end
     if y>=6000 and y<7000 then return "esp"end
