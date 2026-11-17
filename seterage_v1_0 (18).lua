@@ -3900,6 +3900,41 @@ toggle("nextRound","Объявленные киллер / карта",4634)
 toggle("showNextHud","Следующий раунд на экране",4635)
 toggle("nextRoundMap","Следующая карта на экране",4636)
 toggle("nextRoundKiller","Следующий киллер на экране",4637)
+local mapPreparing=false
+local mapPreparingAt=0
+local preparedMap=nil
+local loadConnection,loadRemote
+local function watchMapPreparation()
+    local remotes=ReplicatedStorage:FindFirstChild("Remotes")
+    local remote=remotes and remotes:FindFirstChild("Load")
+    if remote==loadRemote then return end
+    if loadConnection then loadConnection:Disconnect();loadConnection=nil end
+    loadRemote=remote
+    if remote and remote:IsA("RemoteEvent")then
+        loadConnection=connect(remote.OnClientEvent,function(action)
+            if action=="PrepareMap"then
+                mapPreparing=true;mapPreparingAt=os.clock();preparedMap=nil
+            end
+        end)
+    end
+end
+local function preparedMapName()
+    if not mapPreparing then return nil end
+    if preparedMap and preparedMap.Parent~=Workspace then
+        mapPreparing=false;preparedMap=nil;return nil
+    end
+    local map=preparedMap or Workspace:FindFirstChild("Map")
+    if not map then
+        if os.clock()-mapPreparingAt>60 then mapPreparing=false end
+        return nil
+    end
+    preparedMap=map
+    local name=map:GetAttribute("StreamMapName")
+    if type(name)=="string"and name~=""then return name end
+    local scene=map:FindFirstChild("Camerascene1",true)
+    name=scene and scene:GetAttribute("title")
+    if type(name)=="string"and name~=""then return name end
+end
 local function read(names)
     for _,name in ipairs(names)do for _,root in ipairs({ReplicatedStorage,Workspace})do
         local value=root:GetAttribute(name)
@@ -3931,7 +3966,7 @@ local function bestKillerChance()
     return "Наибольший шанс ("..tostring(best).."): "..table.concat(names,", ")
 end
 state.nextRoundDiagnostics=function()
-    local report={candidates={}}
+    local report={candidates={},mapPreparing=mapPreparing,preparedMap=preparedMapName()}
     for _,root in ipairs({ReplicatedStorage,Workspace,player.PlayerGui})do
         local rootAttributes={}
         for key,value in pairs(root:GetAttributes())do
@@ -3967,16 +4002,20 @@ end
 local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.5 then return end;elapsed=0
+    watchMapPreparation()
     local showBoth=state.nextRound or state.showNextHud
     local showMap=showBoth or state.nextRoundMap
     local showKiller=showBoth or state.nextRoundKiller
     state.nextRoundHud.Visible=showMap or showKiller
     if not showMap and not showKiller then text.Text="Следующий раунд: выключено.";return end
     local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})
-    local map=read({"NextMap","NextMapName","UpcomingMap"})or "нет данных"
+    local map=read({"NextMap","NextMapName","UpcomingMap"})
+    local preparing=not map and preparedMapName()or nil
     local lines={}
     if showKiller then lines[#lines+1]=killer and("Киллер: "..killer)or bestKillerChance()or "Киллер: нет данных"end
-    if showMap then lines[#lines+1]="Карта: "..map end
+    if showMap then
+        lines[#lines+1]=map and("Следующая карта: "..map)or(preparing and("Карта раунда: "..preparing)or "Карта: нет данных")
+    end
     local value=table.concat(lines,"\n")
     text.Text="Данные игры\n"..value
     state.nextRoundHudText.Text="Следующий раунд · данные игры\n"..value
