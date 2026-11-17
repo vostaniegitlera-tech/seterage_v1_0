@@ -1804,7 +1804,7 @@ local function validateConfig(text)
             if mode=="System"then mode="BuiltIn"elseif mode=="Both"then mode="Custom"end
             if mode~="BuiltIn"and mode~="Custom"then error("Неверный режим звука")end
             local preset=sound.preset or "Ping"
-            if not ({Ping=true,High=true,Low=true})[preset]then error("Неверный встроенный звук")end
+            if not ({Ping=true,High=true,Low=true,Snap=true,SnapHigh=true,Bass=true,BassLow=true,Splash=true,SplashHigh=true})[preset]then error("Неверный встроенный звук")end
             values.customSounds[id]={id=sound.id,volume=sound.volume,sources=checkedIds(sound.sources or {}),mode=mode,preset=preset}
         else values.customSounds[id]=current end
     end
@@ -2708,7 +2708,18 @@ local specs={
     {id="shot",field="shotSound",title="Звук выстрела",y=8310},
     {id="misfire",field="misfireSound",title="Звук взрыва пистолета",y=8610},
 }
-local presets={Ping={name="Чистый сигнал",speed=1},High={name="Высокий сигнал",speed=1.55},Low={name="Низкий сигнал",speed=0.6}}
+local presets={
+    Ping={name="Чистый сигнал",asset="rbxasset://sounds/electronicpingshort.wav",speed=1},
+    High={name="Высокий сигнал",asset="rbxasset://sounds/electronicpingshort.wav",speed=1.55},
+    Low={name="Низкий сигнал",asset="rbxasset://sounds/electronicpingshort.wav",speed=0.6},
+    Snap={name="Щелчок",asset="rbxasset://sounds/snap.wav",speed=1},
+    SnapHigh={name="Резкий щелчок",asset="rbxasset://sounds/snap.wav",speed=1.4},
+    Bass={name="Бас",asset="rbxasset://sounds/bass.wav",speed=1},
+    BassLow={name="Низкий бас",asset="rbxasset://sounds/bass.wav",speed=0.7},
+    Splash={name="Всплеск",asset="rbxasset://sounds/impact_water.mp3",speed=1},
+    SplashHigh={name="Быстрый всплеск",asset="rbxasset://sounds/impact_water.mp3",speed=1.4},
+}
+local presetOrder={"Ping","High","Low","Snap","SnapHigh","Bass","BassLow","Splash","SplashHigh"}
 local active,watches,rootConnections,lastEvent={},{},{},{}
 local recentSource,muted={},{}
 local audioInfo=label("Автособытия зависят от звуков текущей версии VD.",8948,34)
@@ -2728,8 +2739,9 @@ local function play(id,preview)
     local count=0;for _ in pairs(active)do count=count+1 end
     if count>=8 then return false,"Слишком много звуков одновременно."end
     local sound=Instance.new("Sound");sound.Name="VDHelperCustomAudio"
-    sound.SoundId=builtIn and "rbxasset://sounds/electronicpingshort.wav"or("rbxassetid://"..asset)
-    sound.PlaybackSpeed=builtIn and(presets[config.preset or "Ping"]or presets.Ping).speed or 1
+    local preset=presets[config.preset or "Ping"]or presets.Ping
+    sound.SoundId=builtIn and preset.asset or("rbxassetid://"..asset)
+    sound.PlaybackSpeed=builtIn and preset.speed or 1
     sound.Volume=config.volume;sound.Looped=false
     sound.Parent=folder
     active[sound]={id=id}
@@ -2846,9 +2858,9 @@ for _,spec in ipairs(specs)do
     end)
     modeButton.Name="SoundMode_"..id
     local presetButton=button("Встроенный: Чистый сигнал",y+36,function()
-        local names={"Ping","High","Low"};local index=1
-        for i,name in ipairs(names)do if name==state.customSounds[id].preset then index=i end end
-        state.customSounds[id].preset=names[index%#names+1];state.refreshAudioUI()
+        local index=1
+        for i,name in ipairs(presetOrder)do if name==state.customSounds[id].preset then index=i end end
+        state.customSounds[id].preset=presetOrder[index%#presetOrder+1];state.refreshAudioUI()
     end)
     presetButton.Name="SoundPreset_"..id
     label("ID кастомного аудио",y+24+18,24)
