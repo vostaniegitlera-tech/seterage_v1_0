@@ -3185,6 +3185,14 @@ local function scanEmotes()
     liveEmotes={};lastEmoteScan=os.clock()
     local canonical={};for _,name in ipairs(catalog)do canonical[normalize(name)]=name end
     local generic={animation=true,anim=true,animations=true,r6=true,r15=true,loop=true,main=true,intro=true}
+    local emoteFolder=ReplicatedStorage:FindFirstChild("Emotes")
+    if emoteFolder then for _,item in ipairs(emoteFolder:GetChildren())do
+        local asset=item:GetAttribute("animationid")
+        local id=asset and tostring(asset):match("%d+")
+        if id and id~="0"then
+            liveEmotes[normalize(item.Name)]={name=item.Name,asset=id,container=item,rigs={}}
+        end
+    end end
     for _,item in ipairs(ReplicatedStorage:GetDescendants())do
         if item:IsA("Animation")then
             local node=item.Parent;local root;local rig
@@ -3208,7 +3216,8 @@ local function scanEmotes()
                 if type(name)=="string"and #name>0 and #name<=100 then
                     if container==root then container=item end
                     local key=normalize(name);local record=liveEmotes[key]
-                    if not record then record={name=name,animation=item,container=container,rigs={}};liveEmotes[key]=record end
+                    if not record then record={name=name,animation=item,container=container,rigs={}};liveEmotes[key]=record
+                    elseif not record.animation then record.animation=item end
                     if rig then record.rigs[rig]=item end
                 end
             end
@@ -3234,7 +3243,7 @@ state.emoteDiagnostics=function()
     local count=0
     for _,record in pairs(liveEmotes)do
         count=count+1;if count>40 then break end
-        result.assets[#result.assets+1]={name=record.name,asset=record.animation.AnimationId,
+        result.assets[#result.assets+1]={name=record.name,asset=record.animation and record.animation.AnimationId or record.asset,
             r6=record.rigs.R6 and record.rigs.R6.AnimationId,r15=record.rigs.R15 and record.rigs.R15.AnimationId}
     end
     return result
@@ -3258,7 +3267,7 @@ state.playSelectedEmote=function(forceLocal)
     if os.clock()-lastEmoteScan>2 then scanEmotes()end
     local record=liveEmotes[normalize(state.emoteName)]
     local source=record and(record.rigs[hum.RigType==Enum.HumanoidRigType.R6 and "R6"or "R15"]or record.animation)
-    local id=state.emoteName=="Custom ID"and state.emoteId or(source and tostring(source.AnimationId):match("%d+"))
+    local id=state.emoteName=="Custom ID"and state.emoteId or(source and tostring(source.AnimationId):match("%d+"))or(record and record.asset)
     if state.emoteName~="Custom ID"and forceLocal~=true then
         local remote=nativeRemote()
         if remote then
@@ -3299,8 +3308,32 @@ state.playSelectedEmote=function(forceLocal)
     track.Priority=Enum.AnimationPriority.Action;track.Looped=state.emoteLoop
     local played=pcall(function()track:Play(0.1)end)
     if not played then stopEmote();status.Text="Не удалось запустить эмоцию.";return false end
-    -- Only actual associated sound assets are copied; no replacement music is invented.
-    if record and record.container then for _,source in ipairs(record.container:GetDescendants())do
+    -- Use the soundtrack published with the selected emote.
+    local hasSong=false
+    if record and record.container then
+        local song=record.container:GetAttribute("Song")
+        local songId=song and tostring(song):match("%d+")
+        if songId and songId~="0"then
+            hasSong=true
+            local sound=Instance.new("Sound");sound.Name="SeterageEmoteSound"
+            sound.SoundId="rbxassetid://"..songId;sound.Volume=1;sound.Looped=state.emoteLoop
+            sound.Parent=char:FindFirstChild("HumanoidRootPart")or char
+            emoteSounds[#emoteSounds+1]=sound
+            local offset=record.container:GetAttribute("SongStart")
+            local function startSong()
+                if not state.alive or emoteTrack~=track or not track.IsPlaying or not sound.Parent then return end
+                pcall(function()
+                    if type(offset)=="number"and offset>0 then sound.TimePosition=offset end
+                    sound:Play()
+                end)
+            end
+            if sound.IsLoaded then startSong()else
+                local connection
+                connection=sound.Loaded:Connect(function()connection:Disconnect();startSong()end)
+            end
+        end
+    end
+    if record and record.container and not hasSong then for _,source in ipairs(record.container:GetDescendants())do
         if source:IsA("Sound")then
             local sound=Instance.new("Sound");sound.Name="SeterageEmoteSound"
             sound.SoundId=source.SoundId;sound.Volume=source.Volume;sound.PlaybackSpeed=source.PlaybackSpeed
