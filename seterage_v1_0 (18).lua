@@ -1531,11 +1531,17 @@ end
 local function updateKnock()
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local root=char and char:FindFirstChild("HumanoidRootPart")
-    if hum and hum.Health>0 and not state.isDowned(char)and hum.WalkSpeed>=8 then healthySpeed=math.clamp(hum.WalkSpeed,8,32)end
+    local downed=state.isDowned(char)
+    if hum and hum.Health>0 and not downed and hum.WalkSpeed>=8 then healthySpeed=math.clamp(hum.WalkSpeed,8,32)end
     local blocked=char and(char:GetAttribute("Hooked")==true or char:GetAttribute("IsHooked")==true
         or char:GetAttribute("Carried")==true or char:GetAttribute("BeingCarried")==true)
+    local diagnostic=state.godModeDiagnostics or {};state.godModeDiagnostics=diagnostic
+    diagnostic.enabled=state.antiKnock;diagnostic.downed=downed;diagnostic.blocked=blocked and true or false
+    diagnostic.health=hum and hum.Health;diagnostic.walkSpeed=hum and hum.WalkSpeed;diagnostic.anchored=root and root.Anchored
+    diagnostic.focus=Input:GetFocusedTextBox()~=nil;diagnostic.capturing=state.capturingBind~=nil
+    diagnostic.moveDirection=nil;diagnostic.velocitySet=nil;diagnostic.requestedSpeed=nil
     if not state.antiKnock or not char or not hum or hum.Health<=0 or not root or root.Anchored
-        or not state.isDowned(char)or blocked or Input:GetFocusedTextBox()or state.capturingBind then restoreKnock();return end
+        or not downed or blocked or Input:GetFocusedTextBox()or state.capturingBind then restoreKnock();return end
     local direction=hum.MoveDirection or Vector3.new(0,0,0)
     if direction.Magnitude<0.05 then
         local cam=Workspace.CurrentCamera
@@ -1567,6 +1573,8 @@ local function updateKnock()
     local velocity=root.AssemblyLinearVelocity
     state.godRequestedSpeed=healthySpeed
     local ok=pcall(function()root.AssemblyLinearVelocity=Vector3.new(direction.X*healthySpeed,velocity.Y,direction.Z*healthySpeed)end)
+    diagnostic.moveDirection={direction.X,direction.Y,direction.Z}
+    diagnostic.velocitySet=ok;diagnostic.requestedSpeed=healthySpeed
     if ok then ownedRoot,ownedCharacter=root,char end
 end
 local function restoreBlind()
@@ -1684,7 +1692,7 @@ connect(RunService.Heartbeat,function(dt)
 end)
 connect(RunService.Heartbeat,function()pcall(updateKnock)end)
 label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
-toggle("antiKnock","Режим бога (Anti Knock)",2440)
+toggle("antiKnock","God Mode",2440)
 toggle("fastVault","Fast Vault · эксперимент",2490)
 toggle("spikeVault","Перелаз через шипы · эксперимент",2493)
 label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
@@ -4518,7 +4526,7 @@ state.diagnosticReport=function()
         role=player.Team and player.Team.Name or "unknown",rates=state.rateAdapters,performance=state.perf,cameraAdapter=state.cameraAdapter,zoneSource=state.skillZoneSource,skillUI=state.lastSkillUI,
         animations=state.vaultObservations or {},skillTrace=state.skillTrace,windowESP=state.windowEspDiagnostics and state.windowEspDiagnostics()or nil,
         parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,
-        audio=state.audioDiagnostics and state.audioDiagnostics()or nil,
+        audio=state.audioDiagnostics and state.audioDiagnostics()or nil,godMode=state.godModeDiagnostics,
         nextRound=state.nextRoundDiagnostics and state.nextRoundDiagnostics()or nil,
         killerPerks=state.perkDiagnostics and state.perkDiagnostics()or nil,objects={}}
     local camera=Workspace.CurrentCamera
