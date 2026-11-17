@@ -45,7 +45,7 @@ local state = {
     fastVault=false, spikeVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
     moonForward=false,moonBackward=false,moonForwardBind=Enum.KeyCode.Unknown,moonBackwardBind=Enum.KeyCode.Unknown,
     emoteId="507770239",emoteLoop=false,emoteName="Wave",emoteBind=Enum.KeyCode.Unknown,
-    noSlowdown=false,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
+    noSlowdown=false,selfHealBind=Enum.KeyCode.Unknown,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
     espMeters={generators=true,pumpkins=true,windows=true,pallets=true,hooks=true,killerDistance=true,survivorDistance=true,killerHighlight=false},
     perf={worldProcessed=0,worldMaxBatch=0,skillSnapshots=0},
     autoRunPC=false,autoRunMobile=false,profileName="Default",profiles={},
@@ -1270,7 +1270,7 @@ connect(Input.InputBegan, function(input, processed)
         elseif input.KeyCode == Enum.KeyCode.Backspace then
             state.parryBind, waitingBind = Enum.KeyCode.Unknown, false
         elseif input.KeyCode ~= Enum.KeyCode.Unknown
-            and input.KeyCode ~= Enum.KeyCode.Space and input.KeyCode~=Enum.KeyCode.LeftShift and input.KeyCode~=state.emoteBind and input.KeyCode ~= state.menuBind and input.KeyCode ~= state.moonForwardBind and input.KeyCode ~= state.moonBackwardBind and input.KeyCode ~= state.hiddenBind
+            and input.KeyCode ~= Enum.KeyCode.Space and input.KeyCode~=Enum.KeyCode.LeftShift and input.KeyCode~=state.emoteBind and input.KeyCode~=state.selfHealBind and input.KeyCode ~= state.menuBind and input.KeyCode ~= state.moonForwardBind and input.KeyCode ~= state.moonBackwardBind and input.KeyCode ~= state.hiddenBind
             and input.KeyCode.Name ~= state.parryInput then
             state.parryBind, waitingBind = input.KeyCode, false
         else
@@ -1667,7 +1667,7 @@ connect(Input.InputBegan,function(input,processed)
         if input.KeyCode==Enum.KeyCode.Escape then state.capturingBind=nil
         elseif input.KeyCode==Enum.KeyCode.Backspace then
             state.hiddenBind=Enum.KeyCode.Unknown;state.capturingBind=nil
-        elseif input.KeyCode~=Enum.KeyCode.Unknown and input.KeyCode~=Enum.KeyCode.Space and input.KeyCode~=Enum.KeyCode.LeftShift and input.KeyCode~=state.emoteBind
+        elseif input.KeyCode~=Enum.KeyCode.Unknown and input.KeyCode~=Enum.KeyCode.Space and input.KeyCode~=Enum.KeyCode.LeftShift and input.KeyCode~=state.emoteBind and input.KeyCode~=state.selfHealBind
             and input.KeyCode~=state.menuBind and input.KeyCode~=state.moonForwardBind and input.KeyCode~=state.moonBackwardBind and input.KeyCode~=state.parryBind
             and input.KeyCode.Name~=state.parryInput then
             state.hiddenBind=input.KeyCode;state.capturingBind=nil
@@ -1710,7 +1710,7 @@ local function exportConfig()
     settings.trapMode=state.trapMode
     settings.moonForwardBind=state.moonForwardBind.Name;settings.moonBackwardBind=state.moonBackwardBind.Name
     settings.emoteId=state.emoteId;settings.emoteLoop=state.emoteLoop
-    settings.emoteName=state.emoteName;settings.emoteBind=state.emoteBind.Name
+    settings.emoteName=state.emoteName;settings.emoteBind=state.emoteBind.Name;settings.selfHealBind=state.selfHealBind.Name
     settings.espMeters={};for id,value in pairs(state.espMeters)do settings.espMeters[id]=value end
     settings.soundOwnOnly=state.soundOwnOnly;settings.customSounds={}
     for id,sound in pairs(state.customSounds)do settings.customSounds[id]={id=sound.id,volume=sound.volume,sources=listIds(sound.sources),mode=sound.mode,preset=sound.preset}end
@@ -1768,7 +1768,7 @@ local function validateConfig(text)
         if not finite(v)or v<bounds[1]or v>bounds[2]then error("Число вне диапазона: "..field)end
         values[field]=v
     end
-    for _,field in ipairs({"aspect","parryBind","hiddenBind","parryInput","menuBind","uiFont","uiTheme","moonForwardBind","moonBackwardBind","emoteId","trapMode","backgroundImage","emoteName","emoteBind"})do
+    for _,field in ipairs({"aspect","parryBind","hiddenBind","parryInput","menuBind","uiFont","uiTheme","moonForwardBind","moonBackwardBind","emoteId","trapMode","backgroundImage","emoteName","emoteBind","selfHealBind"})do
         if source[field]~=nil and type(source[field])~="string"then error("Нужна строка: "..field)end
     end
     values.backgroundImage=source.backgroundImage or state.backgroundImage
@@ -1824,11 +1824,12 @@ local function validateConfig(text)
     values.emoteName=source.emoteName or state.emoteName
     if #values.emoteName>100 or values.emoteName:find("[%z\1-\31]")then error("Неверная эмоция")end
     values.emoteBind=checkedKey(source.emoteBind or state.emoteBind.Name,true)
+    values.selfHealBind=checkedKey(source.selfHealBind or state.selfHealBind.Name,true)
     values.moonForwardBind=checkedKey(source.moonForwardBind or state.moonForwardBind.Name,true)
     values.moonBackwardBind=checkedKey(source.moonBackwardBind or state.moonBackwardBind.Name,true)
     if values.moonForward and values.moonBackward then error("Moonwalk: выбери одно направление")end
     local assigned={}
-    for _,code in ipairs({values.menuBind,values.parryBind,values.hiddenBind,values.moonForwardBind,values.moonBackwardBind,values.emoteBind})do
+    for _,code in ipairs({values.menuBind,values.parryBind,values.hiddenBind,values.moonForwardBind,values.moonBackwardBind,values.emoteBind,values.selfHealBind})do
         if code~=Enum.KeyCode.Unknown then
             if assigned[code]or code.Name==values.parryInput then error("Конфликт биндов")end
             assigned[code]=true
@@ -1910,7 +1911,7 @@ local function applyConfig(text)
     for field in pairs(schemaNumbers)do state[field]=values[field]end
     state.aspect=values.aspect;state.parryInput=values.parryInput;state.shaderPreset=values.shaderPreset;state.stretchMode=values.stretchMode
     state.trapMode=values.trapMode;state.moonForwardBind=values.moonForwardBind;state.moonBackwardBind=values.moonBackwardBind
-    state.emoteId=values.emoteId;state.emoteLoop=values.emoteLoop;state.emoteName=values.emoteName;state.emoteBind=values.emoteBind
+    state.emoteId=values.emoteId;state.emoteLoop=values.emoteLoop;state.emoteName=values.emoteName;state.emoteBind=values.emoteBind;state.selfHealBind=values.selfHealBind
     state.skillMode=values.skillMode;state.customSounds=values.customSounds;state.soundOwnOnly=values.soundOwnOnly;state.collapsedGroups=values.collapsedGroups
     state.espColors=values.espColors;state.espMeters=values.espMeters;state.widgetPositions=values.widgetPositions
     for _,field in ipairs({"menuBind","autoLoad","autoSave","showHints","uiFont","uiTheme","uiAccentColor"})do state[field]=values[field]end
@@ -1933,6 +1934,7 @@ local function applyConfig(text)
     updateCamera();refreshESP();updateOverlays();applyExtras();refreshExtensions()
     if state.refreshAvatarUI then state.refreshAvatarUI()end
     if state.refreshTrapUI then state.refreshTrapUI()end
+    if state.refreshHealBind then state.refreshHealBind()end
     if state.refreshSkillUI then state.refreshSkillUI()end
     if state.refreshAudioUI then state.refreshAudioUI()end
     if state.refreshColorControls then state.refreshColorControls()end
@@ -2377,7 +2379,7 @@ connect(Input.InputBegan,function(input)
     local key=input.KeyCode
     if key==Enum.KeyCode.Escape then state.capturingBind=nil
     elseif key==Enum.KeyCode.Backspace then state.menuBind=Enum.KeyCode.Unknown;state.capturingBind=nil
-    elseif key~=Enum.KeyCode.Unknown and key~=Enum.KeyCode.Space and key~=Enum.KeyCode.LeftShift and key~=state.emoteBind and key~=state.parryBind
+    elseif key~=Enum.KeyCode.Unknown and key~=Enum.KeyCode.Space and key~=Enum.KeyCode.LeftShift and key~=state.emoteBind and key~=state.selfHealBind and key~=state.parryBind
         and key~=state.hiddenBind and key~=state.moonForwardBind and key~=state.moonBackwardBind and key.Name~=state.parryInput then
         state.menuBind=key;state.capturingBind=nil
     else status.Text="Клавиша занята."end
@@ -3125,7 +3127,7 @@ connect(Input.InputBegan,function(input,processed)
         local other=capture=="moonForward"and state.moonBackwardBind or state.moonForwardBind
         if key==Enum.KeyCode.Escape then state.capturingBind=nil
         elseif key==Enum.KeyCode.Backspace then state[capture.."Bind"]=Enum.KeyCode.Unknown;state.capturingBind=nil
-        elseif key~=Enum.KeyCode.Unknown and key~=Enum.KeyCode.Space and key~=Enum.KeyCode.LeftShift and key~=state.emoteBind and key~=state.menuBind and key~=state.parryBind
+        elseif key~=Enum.KeyCode.Unknown and key~=Enum.KeyCode.Space and key~=Enum.KeyCode.LeftShift and key~=state.emoteBind and key~=state.selfHealBind and key~=state.menuBind and key~=state.parryBind
             and key~=state.hiddenBind and key~=other and key.Name~=state.parryInput then
             state[capture.."Bind"]=key;state.capturingBind=nil
         else status.Text="Клавиша уже занята."end
@@ -3363,7 +3365,7 @@ connect(Input.InputBegan,function(input,processed)
         if code==Enum.KeyCode.Escape then state.capturingBind=nil
         elseif code==Enum.KeyCode.Backspace then state.emoteBind=Enum.KeyCode.Unknown;state.capturingBind=nil
         elseif code~=Enum.KeyCode.Unknown and code~=Enum.KeyCode.Space and code~=Enum.KeyCode.LeftShift
-            and code~=state.menuBind and code~=state.parryBind and code~=state.hiddenBind
+            and code~=state.menuBind and code~=state.parryBind and code~=state.hiddenBind and code~=state.selfHealBind
             and code~=state.moonForwardBind and code~=state.moonBackwardBind and code.Name~=state.parryInput then
             state.emoteBind=code;state.capturingBind=nil
         else status.Text="Клавиша занята."end
@@ -3939,7 +3941,7 @@ local function injured(char,hum)
 end
 toggle("noSlowdown","No slowdown",3800)
 label("Восстанавливает обычную скорость при распознанном замедлении.",3840,28)
-button("Самохил / остановить",3860,function()
+local function toggleSelfHeal()
     if healSession then stopHealing();healInfo.Text="Самохил остановлен.";return end
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local root=char and char:FindFirstChild("HumanoidRootPart")
@@ -3959,7 +3961,40 @@ button("Самохил / остановить",3860,function()
     healSession={remote=remote,root=root,char=char,hum=hum,requestId=requestId,start=os.clock()}
     state.selfHealing=true
     healInfo.Text="Запрос отправлен. Ждём результат игры."
+end
+button("Самохил / остановить",3860,toggleSelfHeal)
+local healBindButton
+state.refreshHealBind=function()
+    if healBindButton then
+        healBindButton.Text=state.capturingBind=="selfHeal"and "Нажми клавишу · Backspace убрать · Esc отмена"
+            or "Бинд самохила: "..bindLabel(state.selfHealBind)
+    end
+end
+healBindButton=button("Бинд самохила: не назначен",3861,function()
+    waitingBind=false;bindButton.Text="Бинд авто парирования: "..bindLabel(state.parryBind)
+    state.capturingBind="selfHeal";state.refreshHealBind()
 end)
+connect(Input.InputBegan,function(input,processed)
+    if Input:GetFocusedTextBox()then return end
+    if state.capturingBind=="selfHeal"then
+        if input.UserInputType~=Enum.UserInputType.Keyboard then return end
+        local key=input.KeyCode
+        if key==Enum.KeyCode.Escape then state.capturingBind=nil
+        elseif key==Enum.KeyCode.Backspace then state.selfHealBind=Enum.KeyCode.Unknown;state.capturingBind=nil
+        elseif key~=Enum.KeyCode.Unknown and key~=Enum.KeyCode.Space and key~=Enum.KeyCode.LeftShift
+            and key~=state.menuBind and key~=state.parryBind and key~=state.hiddenBind
+            and key~=state.moonForwardBind and key~=state.moonBackwardBind and key~=state.emoteBind
+            and key.Name~=state.parryInput then
+            state.selfHealBind=key;state.capturingBind=nil
+        else status.Text="Клавиша занята."end
+        state.refreshHealBind();return
+    end
+    if not processed and not state.capturingBind and not state.dropdownOpen
+        and state.selfHealBind~=Enum.KeyCode.Unknown and input.KeyCode==state.selfHealBind then
+        toggleSelfHeal()
+    end
+end)
+state.refreshHealBind()
 local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.1 then return end;elapsed=0
@@ -4427,6 +4462,7 @@ state.applyStyle=function()
     local palette=themes[state.uiTheme]or themes.Graphite
     local font=fontPairs[state.uiFont]or fontPairs.Gotham
     if state.refreshUiOptions then state.refreshUiOptions()end
+    if state.refreshHealBind then state.refreshHealBind()end
     panel.BackgroundColor3=palette.panel
     tabBar.BackgroundColor3=palette.button
     outline.Color=state.uiAccentColor:Lerp(palette.panel,.55)
