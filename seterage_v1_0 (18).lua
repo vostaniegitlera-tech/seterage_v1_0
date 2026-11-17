@@ -2779,6 +2779,11 @@ local presets={
 local presetOrder={"Ping","High","Low","Snap","SnapHigh","Bass","BassLow","Splash","SplashHigh"}
 local active,watches,rootConnections,lastEvent={},{},{},{}
 local recentSource,muted={},{}
+local audioEvents={}
+state.audioDiagnostics=function()
+    return {daggerEnabled=state.daggerSound,ownOnly=state.soundOwnOnly,
+        daggerPreset=state.customSounds.dagger.preset,daggerVolume=state.customSounds.dagger.volume,events=audioEvents}
+end
 local audioInfo=label("Автособытия зависят от звуков текущей версии VD.",8948,34)
 local function destroyClip(sound)
     local entry=active[sound]
@@ -2794,6 +2799,8 @@ local function play(id,preview)
     if count>=8 then return false,"Слишком много звуков одновременно."end
     local sound=Instance.new("Sound");sound.Name="VDHelperCustomAudio"
     local preset=presets[config.preset or "Ping"]or presets.Ping
+    local event={kind=preview and "preview"or "replacement",event=id,preset=config.preset,asset=preset.asset,volume=config.volume}
+    audioEvents[#audioEvents+1]=event;if #audioEvents>30 then table.remove(audioEvents,1)end
     sound.SoundId=preset.asset
     sound.PlaybackSpeed=preset.speed
     sound.Volume=config.volume;sound.Looped=false
@@ -2801,9 +2808,11 @@ local function play(id,preview)
     active[sound]={id=id}
     active[sound].connection=sound.Ended:Connect(function()destroyClip(sound)end)
     local ok=pcall(function()sound:Play()end)
+    event.playCall=ok
     if not ok then destroyClip(sound);return false,"Звук недоступен."end
     task.delay(5,function()
         if state.alive and active[sound]and not sound.IsLoaded then
+            event.loaded=false
             audioInfo.Text="Встроенный звук не загрузился."
             destroyClip(sound)
         end
@@ -2861,6 +2870,12 @@ local function watch(sound)
     watches[sound]=sound.Played:Connect(function()
         if not state.alive then return end
         local id=identify(sound)
+        if state.daggerSound then
+            local ok,path=pcall(function()return sound:GetFullName()end)
+            audioEvents[#audioEvents+1]={kind="gameSound",name=sound.Name,path=ok and path or sound.Name,
+                asset=tostring(sound.SoundId),own=ownSource(sound),identified=id}
+            if #audioEvents>30 then table.remove(audioEvents,1)end
+        end
         if not id or os.clock()-(lastEvent[id]or -math.huge)<0.15 then return end
         lastEvent[id]=os.clock()
         recentSource[id]=tostring(sound.SoundId):match("%d+")
@@ -4157,7 +4172,8 @@ state.diagnosticReport=function()
         skillMode=state.skillMode,stretch=state.stretch,stretchMode=state.stretchMode,antiKnock=state.antiKnock},
         role=player.Team and player.Team.Name or "unknown",rates=state.rateAdapters,performance=state.perf,cameraAdapter=state.cameraAdapter,zoneSource=state.skillZoneSource,skillUI=state.lastSkillUI,
         animations=state.vaultObservations or {},skillTrace=state.skillTrace,windowESP=state.windowEspDiagnostics and state.windowEspDiagnostics()or nil,
-        parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,objects={}}
+        parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,
+        audio=state.audioDiagnostics and state.audioDiagnostics()or nil,objects={}}
     local camera=Workspace.CurrentCamera
     if camera then report.camera={viewport={camera.ViewportSize.X,camera.ViewportSize.Y},fov=camera.FieldOfView}
         pcall(function()report.camera.viewStretch=camera.ViewStretch end)
