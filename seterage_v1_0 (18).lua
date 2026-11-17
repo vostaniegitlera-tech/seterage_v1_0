@@ -3381,6 +3381,9 @@ local function nativeRemote()
 end
 local requestSerial=0
 local emoteObserver
+local nativeStopConnection
+local bindEmoteActive=false
+local nativeEmoteActive=false
 state.emoteDiagnostics=function()
     local result={selected=state.emoteName,last=state.emoteLast,assets={}}
     local remote=nativeRemote()
@@ -3398,17 +3401,24 @@ state.emoteDiagnostics=function()
     return result
 end
 local oldStopEmote=stopEmote
-stopEmote=function()
+stopEmote=function(keepBind)
     requestSerial=requestSerial+1
     if emoteObserver then emoteObserver:Disconnect();emoteObserver=nil end
+    if nativeStopConnection then nativeStopConnection:Disconnect();nativeStopConnection=nil end
+    if not keepBind then bindEmoteActive=false end
+    if nativeEmoteActive then
+        nativeEmoteActive=false
+        local remote=nativeRemote()
+        if remote then pcall(function()remote:FireServer("StopEmote")end)end
+    end
     oldStopEmote();emoteCharacter=nil
     for _,sound in ipairs(emoteSounds)do pcall(function()sound:Stop();sound:Destroy()end)end
     emoteSounds={}
 end
 resetAvatar=function()stopMovement();stopEmote()end
-state.playSelectedEmote=function(forceLocal)
+state.playSelectedEmote=function(forceLocal,loopOverride)
     if not state.alive or Input:GetFocusedTextBox()then return false end
-    stopEmote()
+    stopEmote(loopOverride==true)
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local animator=hum and hum:FindFirstChildOfClass("Animator")
     if not hum or hum.Health<=0 then status.Text="Персонаж ещё не готов.";return false end
@@ -3428,17 +3438,30 @@ state.playSelectedEmote=function(forceLocal)
                 if animation and((id and tostring(animation.AnimationId):match("%d+")==id)
                     or normalize(animation.Name)==normalize(selected)or normalize(track.Name)==normalize(selected))then
                     confirmed=true
+                    if loopOverride then
+                        if nativeStopConnection then nativeStopConnection:Disconnect()end
+                        nativeStopConnection=track.Stopped:Connect(function()
+                            if state.alive and bindEmoteActive and serial==requestSerial and player.Character==char then
+                                task.defer(function()
+                                    if state.alive and bindEmoteActive and serial==requestSerial and not state.isDowned(char)then
+                                        if not state.playSelectedEmote(false,true)then bindEmoteActive=false end
+                                    end
+                                end)
+                            end
+                        end)
+                    end
                     if state.emoteLast and state.emoteLast.name==selected then state.emoteLast.status="matching animation observed";if state.alive then status.Text="Эмоция: анимация подтверждена."end end
                 end
             end)end
             emoteObserver=observer
             local ok=pcall(function()remote:FireServer(record and record.name or selected)end)
+            nativeEmoteActive=ok;emoteCharacter=char
             status.Text=ok and "Запрос эмоции отправлен; ожидание подтверждения."or "Игровой обработчик отклонил вызов."
             task.delay(2,function()
                 if observer then observer:Disconnect();if emoteObserver==observer then emoteObserver=nil end end
                 if not state.alive or serial~=requestSerial or selected~=state.emoteName or confirmed then return end
                 if id then
-                    state.playSelectedEmote(true)
+                    if not state.playSelectedEmote(true,loopOverride)and loopOverride then bindEmoteActive=false end
                 elseif state.emoteLast then
                     state.emoteLast.status=ok and "no matching animation; no local asset"or "remote error"
                     status.Text="Эмоция не подтверждена игрой; локальный ассет отсутствует."
@@ -3454,7 +3477,7 @@ state.playSelectedEmote=function(forceLocal)
     if not ok or not track then animation:Destroy();status.Text="Roblox не разрешил эту анимацию.";return false end
     state.emoteLast={name=state.emoteName,transport="local asset",status="loading",asset=id}
     emoteAnimation,emoteTrack=animation,track;emoteCharacter=char
-    track.Priority=Enum.AnimationPriority.Action;track.Looped=state.emoteLoop
+    track.Priority=Enum.AnimationPriority.Action;track.Looped=state.emoteLoop or loopOverride==true
     local played=pcall(function()track:Play(0.1)end)
     if not played then stopEmote();status.Text="Не удалось запустить эмоцию.";return false end
     -- Use the soundtrack published with the selected emote.
@@ -3465,7 +3488,7 @@ state.playSelectedEmote=function(forceLocal)
         if songId and songId~="0"then
             hasSong=true
             local sound=Instance.new("Sound");sound.Name="SeterageEmoteSound"
-            sound.SoundId="rbxassetid://"..songId;sound.Volume=1;sound.Looped=state.emoteLoop
+            sound.SoundId="rbxassetid://"..songId;sound.Volume=1;sound.Looped=state.emoteLoop or loopOverride==true
             sound.Parent=char:FindFirstChild("HumanoidRootPart")or char
             emoteSounds[#emoteSounds+1]=sound
             local offset=record.container:GetAttribute("SongStart")
@@ -3486,7 +3509,7 @@ state.playSelectedEmote=function(forceLocal)
         if source:IsA("Sound")then
             local sound=Instance.new("Sound");sound.Name="SeterageEmoteSound"
             sound.SoundId=source.SoundId;sound.Volume=source.Volume;sound.PlaybackSpeed=source.PlaybackSpeed
-            sound.Looped=source.Looped;sound.Parent=char:FindFirstChild("HumanoidRootPart")or char
+            sound.Looped=source.Looped or loopOverride==true;sound.Parent=char:FindFirstChild("HumanoidRootPart")or char
             emoteSounds[#emoteSounds+1]=sound
             local delay=source:GetAttribute("StartDelay");delay=type(delay)=="number"and math.clamp(delay,0,60)or 0
             task.delay(delay,function()if state.alive and emoteTrack==track and track.IsPlaying and sound.Parent then pcall(function()sound:Play()end)end end)
@@ -3527,7 +3550,7 @@ button("Проиграть эмоцию",9442,state.playSelectedEmote)
 button("Проиграть локально",9443,function()state.playSelectedEmote(true)end)
 button("Остановить локальную эмоцию",9484,function()stopEmote();status.Text="Игровую эмоцию останови штатно движением."end)
 local loopButton=button("Повтор локальной эмоции",9526,function()
-    state.emoteLoop=not state.emoteLoop;if emoteTrack then emoteTrack.Looped=state.emoteLoop end
+    state.emoteLoop=not state.emoteLoop;if emoteTrack then emoteTrack.Looped=state.emoteLoop or bindEmoteActive end
     if state.applyStyle then state.applyStyle()end
 end)
 state.uiOptions.emoteLoop={button=loopButton,text="Повтор локальной эмоции"}
@@ -3553,11 +3576,18 @@ connect(Input.InputBegan,function(input,processed)
         else status.Text="Клавиша занята."end
         state.refreshAvatarUI();return
     end
-    if not processed and not state.capturingBind and not state.dropdownOpen and state.emoteBind~=Enum.KeyCode.Unknown and input.KeyCode==state.emoteBind then state.playSelectedEmote()end
+    if not processed and not state.capturingBind and not state.dropdownOpen and state.emoteBind~=Enum.KeyCode.Unknown and input.KeyCode==state.emoteBind then
+        if bindEmoteActive then
+            stopEmote();status.Text="Эмоция остановлена."
+        else
+            bindEmoteActive=true
+            if not state.playSelectedEmote(false,true)then bindEmoteActive=false end
+        end
+    end
 end)
 state.refreshAvatarUI()
 connect(RunService.Heartbeat,function()
-    if not emoteTrack then return end
+    if not emoteTrack and not bindEmoteActive then return end
     local hum=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
     if player.Character~=emoteCharacter or not hum or hum.Health<=0 then stopEmote()end
 end)
