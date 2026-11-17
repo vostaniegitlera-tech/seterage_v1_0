@@ -750,7 +750,7 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     updateCamera()
 end)
 label("Пресеты имитируют растянутые 4:3 и 16:10.\nИнтерфейс и разрешение экрана не меняются.", 522, 38)
-toggle("perks", "Перк ман инфо", 686)
+toggle("perks", "Перки маньяка на экране", 686)
 label("Только доступные клиенту данные.\nСкрытые перки и их эффекты не угадываются.", 730, 40)
 label("Подсветка ищет команду Killer/Killers.\nАвто скиллчеки требуют проверки в игре.", 782, 60)
 
@@ -784,7 +784,9 @@ local function overlayLabel(parent, text, y, height)
     return item
 end
 perkBox = overlay("KillerPerks", 280, 184, UDim2.new(0, 12, 0, 12), Vector2.new(0, 0))
-overlayLabel(perkBox, "Перки маньяка", 4, 24)
+perkBox.ZIndex=20
+local perkTitle=overlayLabel(perkBox, "Перки маньяка", 4, 24)
+perkTitle.ZIndex=22;perkTitle.Font=Enum.Font.GothamBold
 local perkScroll = Instance.new("ScrollingFrame")
 perkScroll.Position = UDim2.fromOffset(8, 32)
 perkScroll.Size = UDim2.new(1, -16, 1, -40)
@@ -793,11 +795,13 @@ perkScroll.BorderSizePixel = 0
 perkScroll.ScrollBarThickness = 3
 perkScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 perkScroll.CanvasSize = UDim2.new()
+perkScroll.ZIndex = 21
 perkScroll.Parent = perkBox
 local perkText = overlayLabel(perkScroll, "Нет доступных данных.", 0, 0)
 perkText.Position = UDim2.fromOffset(0, 0)
 perkText.Size = UDim2.new(1, -6, 0, 0)
 perkText.AutomaticSize = Enum.AutomaticSize.Y
+perkText.ZIndex = 22
 perkText.TextXAlignment = Enum.TextXAlignment.Left
 perkText.TextYAlignment = Enum.TextYAlignment.Top
 local function equippedPerks(who)
@@ -2660,7 +2664,7 @@ local function createMover(target,id,titleText,enabled,default)
     handle.Active=true
     handle.BackgroundColor3=Color3.fromRGB(50,100,130)
     handle.BackgroundTransparency=0.8
-    handle.ZIndex=5
+    handle.ZIndex=id=="perks"and 23 or 5
     handle.Visible=false
     handle.Parent=target.Parent
     local outline=Instance.new("UIStroke");outline.Thickness=1;outline.Color=state.uiAccentColor;outline.Parent=handle
