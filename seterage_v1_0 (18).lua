@@ -68,6 +68,7 @@ local state = {
     uiAccentColor = Color3.fromRGB(139,92,246), menuX = 0.5, menuY = 0.5,
 
     espGenerators = false, espPumpkins = false, espWindows = false, espPallets = false, espHooks=false,
+    espLabelsBelow=false,espGeneratorState=false,espPlayerState=false,
     killerDistance = false, survivorDistance = false, espRange = 500,
 
     crosshair = false, stats = false, parry = false,
@@ -2031,11 +2032,12 @@ local function classify(item)
     local namedWindow=name:match("^window%d*$")or(item:IsA("BasePart")and name=="bottom"and item.Parent and cleanName(item.Parent.Name):find("window",1,true))
     -- Some maps place window models directly in Map. The observed vault
     -- trigger and its VaultPoint distinguish these from decorative windows.
-    if item:IsA("Model")and name:match("^window%d*$")then
+    if item:IsA("Model")then
         local trigger=item:FindFirstChild("VaultTrigger")
         local mapNode=item.Parent
         while mapNode and mapNode~=Workspace and cleanName(mapNode.Name)~="map"do mapNode=mapNode.Parent end
-        if mapNode and mapNode~=Workspace and trigger and trigger:IsA("BasePart")and trigger:FindFirstChild("VaultPoint")then return "windows"end
+        if mapNode and mapNode~=Workspace and trigger and trigger:IsA("BasePart")
+            and(trigger:FindFirstChild("VaultPoint")or tagged(trigger,"VaultPoint"))then return "windows"end
     end
     -- Some maps use different names for models immediately inside Windows.
     local windowEntry=inResources and item.Parent==windowFolder and(item:IsA("Model")or namedWindow or name=="bottom")
@@ -2063,6 +2065,7 @@ state.objectAnchor=anchor
 local function destroyMark(mark)
     if mark.labelGui then mark.labelGui:Destroy() end
     if mark.highlight then mark.highlight:Destroy() end
+    if mark.windowBox then mark.windowBox:Destroy() end
 end
 local function clearObjects()
     for item,mark in pairs(objectMarks) do destroyMark(mark);objectMarks[item]=nil end
@@ -2137,9 +2140,14 @@ local function watchObjects()
         if attributeWatches[item]then for _,connection in ipairs(attributeWatches[item])do connection:Disconnect()end;attributeWatches[item]=nil end
         local mark=objectMarks[item];if mark then destroyMark(mark);objectMarks[item]=nil end
     end)
-    if CollectionService then for _,tag in ipairs({"Window","Vault","Hook"})do
+    if CollectionService then for _,tag in ipairs({"Window","Vault","Hook","VaultPoint"})do
         pcall(function()tagConnections[#tagConnections+1]=CollectionService:GetInstanceAddedSignal(tag):Connect(enqueue)end)
         pcall(function()tagConnections[#tagConnections+1]=CollectionService:GetInstanceRemovedSignal(tag):Connect(enqueue)end)
+        if tag=="VaultPoint"then
+            for _,item in ipairs(CollectionService:GetTagged(tag))do enqueue(item.Parent)end
+            pcall(function()tagConnections[#tagConnections+1]=CollectionService:GetInstanceAddedSignal(tag):Connect(function(item)enqueue(item.Parent)end)end)
+            pcall(function()tagConnections[#tagConnections+1]=CollectionService:GetInstanceRemovedSignal(tag):Connect(function(item)enqueue(item.Parent)end)end)
+        end
     end end
 end
 local function processIndex()
@@ -2237,8 +2245,17 @@ local function createMark(part,color,object)
     return mark
 end
 local function metres(studs)return studs*0.28 end
-local function showMark(mark,name,distance,kind)
+local function showMark(mark,name,distance,kind,object)
     mark.labelGui.MaxDistance=state.espRange/0.28
+    local frame,size
+    if object and object:IsA("Model")then
+        local ok,a,b=pcall(function()return object:GetBoundingBox()end)
+        if ok then frame,size=a,b end
+    end
+    if not frame then frame,size=mark.anchor.CFrame,mark.anchor.Size end
+    local halfHeight=(math.abs(frame.RightVector.Y)*size.X+math.abs(frame.UpVector.Y)*size.Y+math.abs(frame.LookVector.Y)*size.Z)/2
+    local vertical=(halfHeight+.5)*(state.espLabelsBelow and -1 or 1)
+    mark.labelGui.StudsOffsetWorldSpace=frame.Position-mark.anchor.Position+Vector3.new(0,vertical,0)
     mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
 end
 label("ОБЪЕКТЫ НА КАРТЕ",4000,24)
@@ -2249,6 +2266,9 @@ toggle("espPallets","ESP палет",4160)
 toggle("espHooks","ESP повесов",4180)
 toggle("killerDistance","ESP киллера",4202)
 toggle("survivorDistance","ESP сурвов",4244)
+toggle("espGeneratorState","Состояние генераторов",4035.7)
+toggle("espPlayerState","Состояние игроков",4245.7)
+toggle("espLabelsBelow","Надписи снизу",4260)
 state.metricOptions={}
 for _,entry in ipairs({{"generators",4035.5},{"pumpkins",4077.5},{"windows",4119.5},{"pallets",4161.5},{"hooks",4181.5},
     {"killerDistance",4203.5},{"survivorDistance",4245.5},{"killerHighlight",53.5}})do
@@ -2289,9 +2309,17 @@ local function updateWorldEsp()
                             keep[item]=true;counts[kind]=counts[kind]+1
                             local mark=objectMarks[item]
                             if mark and mark.anchor~=part then destroyMark(mark);mark=nil end
-                            if not mark then mark=createMark(part,state.espColors[kind],item);objectMarks[item]=mark end
+                            if not mark then
+                                mark=createMark(part,state.espColors[kind],item);objectMarks[item]=mark
+                                if kind=="windows"then
+                                    local box=Instance.new("BoxHandleAdornment");box.Name="VDHelperWindowShape"
+                                    box.Adornee=part;box.Size=part.Size;box.AlwaysOnTop=true;box.ZIndex=1;box.Transparency=.82
+                                    box.Parent=part;mark.windowBox=box
+                                end
+                            end
                             mark.text.TextColor3=state.espColors[kind]
                             mark.highlight.FillColor=state.espColors[kind];mark.highlight.OutlineColor=state.espColors[kind]
+                            if mark.windowBox then mark.windowBox.Color3=state.espColors[kind];mark.windowBox.Size=part.Size end
                             local title=profile.title
                             if kind=="generators"then
                                 local progress=item:GetAttribute("RepairProgress")
@@ -2302,8 +2330,18 @@ local function updateWorldEsp()
                                 if type(progress)=="number"and progress==progress and progress>=0 and progress<=100 then
                                     title=title.." · "..string.format("%.1f%%",progress)
                                 else title=title.." · прогресс: —"end
+                                if state.espGeneratorState then
+                                    local broken=item:GetAttribute("Broken")
+                                    if type(broken)~="boolean"then broken=item:GetAttribute("IsBroken")end
+                                    local regressing=item:GetAttribute("Regressing")
+                                    if broken==true then title=title.." · сломан"
+                                    elseif broken==false then title=title.." · цел"
+                                    elseif regressing==true then title=title.." · регресс"
+                                    elseif regressing==false then title=title.." · без регресса"
+                                    else title=title.." · состояние: —"end
+                                end
                             end
-                            showMark(mark,title,distance,kind)
+                            showMark(mark,title,distance,kind,item)
                         end
                     end
                 end
@@ -2333,7 +2371,16 @@ local function updateWorldEsp()
                         end
                         mark.text.TextColor3=killer and(state.killerDistance and state.espColors.killerDistance or state.espColors.killerHighlight)or state.espColors.survivorDistance
                         if mark.highlight then mark.highlight.FillColor=mark.text.TextColor3;mark.highlight.OutlineColor=mark.text.TextColor3 end
-                        showMark(mark,(killer and "Киллер "or "Сурв ")..(who.DisplayName or who.Name),distance,killer and(state.killerDistance and "killerDistance"or "killerHighlight")or "survivorDistance")
+                        local title=(killer and "Киллер "or "Сурв ")..(who.DisplayName or who.Name)
+                        if survivor and state.espPlayerState then
+                            local condition="здоров"
+                            if state.isDowned(char)or hum.Health<=50 then condition="нокнут"
+                            elseif hum.Health<95 then condition="ранен"end
+                            if char:GetAttribute("IsHooked")==true then condition="на крюке"
+                            elseif char:GetAttribute("IsCarried")==true then condition="несут"end
+                            title=title.." · "..condition
+                        end
+                        showMark(mark,title,distance,killer and(state.killerDistance and "killerDistance"or "killerHighlight")or "survivorDistance",char)
                     end
                 end
             end
@@ -3741,22 +3788,56 @@ local text=label("Следующий раунд: нет опубликованн
 text.Name="NextRoundInfo"
 toggle("nextRound","Объявленные киллер / карта",4634)
 toggle("showNextHud","Следующий раунд на экране",4635)
-local function read(name)
-    for _,root in ipairs({ReplicatedStorage,Workspace})do
+local function read(names)
+    for _,name in ipairs(names)do for _,root in ipairs({ReplicatedStorage,Workspace})do
         local value=root:GetAttribute(name)
         if(type(value)=="string"and value~="")or type(value)=="number"then return tostring(value)end
         local item=root:FindFirstChild(name,true)
         if item and(item:IsA("StringValue")or item:IsA("IntValue"))and tostring(item.Value)~=""then return tostring(item.Value)end
         if item and item:IsA("ObjectValue")and item.Value then return item.Value.Name end
+    end end
+end
+state.nextRoundDiagnostics=function()
+    local report={candidates={}}
+    for _,root in ipairs({ReplicatedStorage,Workspace,player.PlayerGui})do
+        local rootAttributes={}
+        for key,value in pairs(root:GetAttributes())do
+            local name=key:lower()
+            if name:find("next",1,true)or name:find("upcoming",1,true)then rootAttributes[key]=tostring(value)end
+        end
+        if next(rootAttributes)then report.candidates[#report.candidates+1]={path=root:GetFullName(),attributes=rootAttributes}end
+        for _,item in ipairs(root:GetDescendants())do
+            local name=item.Name:lower()
+            if(name:find("next",1,true)or name:find("upcoming",1,true))
+                and(name:find("map",1,true)or name:find("killer",1,true)or name:find("round",1,true))then
+                local row={path=item:GetFullName(),class=item.ClassName}
+                if item:IsA("StringValue")or item:IsA("IntValue")or item:IsA("NumberValue")then row.value=tostring(item.Value)
+                elseif item:IsA("ObjectValue")and item.Value then row.value=item.Value.Name
+                elseif item:IsA("TextLabel")then row.value=item.Text end
+                report.candidates[#report.candidates+1]=row
+                if #report.candidates>=80 then return report end
+            end
+            local attributes={}
+            for key,value in pairs(item:GetAttributes())do
+                local field=key:lower()
+                if(field:find("next",1,true)or field:find("upcoming",1,true))
+                    and(field:find("map",1,true)or field:find("killer",1,true))then attributes[key]=tostring(value)end
+            end
+            if next(attributes)then
+                report.candidates[#report.candidates+1]={path=item:GetFullName(),attributes=attributes}
+                if #report.candidates>=80 then return report end
+            end
+        end
     end
+    return report
 end
 local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.5 then return end;elapsed=0
     state.nextRoundHud.Visible=state.showNextHud
     if not state.nextRound and not state.showNextHud then text.Text="Следующий раунд: выключено.";return end
-    local killer=read("NextKiller")or "нет данных"
-    local map=read("NextMap")or "нет данных"
+    local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})or "нет данных"
+    local map=read({"NextMap","NextMapName","UpcomingMap"})or "нет данных"
     local value="Киллер: "..killer.."\nКарта: "..map
     text.Text="Данные игры\n"..value
     state.nextRoundHudText.Text="Следующий раунд · данные игры\n"..value
@@ -4173,7 +4254,8 @@ state.diagnosticReport=function()
         role=player.Team and player.Team.Name or "unknown",rates=state.rateAdapters,performance=state.perf,cameraAdapter=state.cameraAdapter,zoneSource=state.skillZoneSource,skillUI=state.lastSkillUI,
         animations=state.vaultObservations or {},skillTrace=state.skillTrace,windowESP=state.windowEspDiagnostics and state.windowEspDiagnostics()or nil,
         parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,
-        audio=state.audioDiagnostics and state.audioDiagnostics()or nil,objects={}}
+        audio=state.audioDiagnostics and state.audioDiagnostics()or nil,
+        nextRound=state.nextRoundDiagnostics and state.nextRoundDiagnostics()or nil,objects={}}
     local camera=Workspace.CurrentCamera
     if camera then report.camera={viewport={camera.ViewportSize.X,camera.ViewportSize.Y},fov=camera.FieldOfView}
         pcall(function()report.camera.viewStretch=camera.ViewStretch end)
@@ -4203,11 +4285,25 @@ state.diagnosticReport=function()
     if char then for _,item in ipairs(char:GetChildren())do if item:IsA("Tool")then
         report.healing.equipped[#report.healing.equipped+1]={name=item.Name,action=item:GetAttribute("UseAction")or item:GetAttribute("Action"),selfHealOnActivate=item:GetAttribute("SelfHealOnActivate")}
     end end end
+    local generators={}
     if root and state.getIndexedObjects then for _,entry in ipairs(state.getIndexedObjects())do
-        if entry.part then nearby[#nearby+1]={kind=entry.kind,path=path(entry.item),distance=(entry.part.Position-root.Position).Magnitude}end
+        if entry.part then
+            local distance=(entry.part.Position-root.Position).Magnitude
+            nearby[#nearby+1]={kind=entry.kind,path=path(entry.item),distance=distance}
+            if entry.kind=="generators"then generators[#generators+1]={item=entry.item,distance=distance}end
+        end
     end end
     table.sort(nearby,function(a,b)return a.distance<b.distance end)
     for i=1,math.min(16,#nearby)do report.objects[i]=nearby[i]end
+    table.sort(generators,function(a,b)return a.distance<b.distance end)
+    report.generatorStates={}
+    for i=1,math.min(3,#generators)do
+        local item=generators[i].item;local attrs={}
+        for key,value in pairs(item:GetAttributes())do
+            if type(value)=="number"or type(value)=="boolean"or(type(value)=="string"and #value<120)then attrs[key]=value end
+        end
+        report.generatorStates[#report.generatorStates+1]={path=path(item),attributes=attrs}
+    end
     return Http:JSONEncode(report)
 end
 button("Скопировать диагностику",5882,function()
