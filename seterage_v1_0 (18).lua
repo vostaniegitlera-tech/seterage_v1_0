@@ -42,7 +42,7 @@ end
 local state = {
     alive = true, esp = false,
     trapMode="Perfect", showHiddenFov=false, showParryFov=false, showTargetLine=false,
-    fastVault=false, spikeVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
+    fastVault=false, spikeVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, nextRoundMap=false, nextRoundKiller=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
     moonForward=false,moonBackward=false,moonForwardBind=Enum.KeyCode.Unknown,moonBackwardBind=Enum.KeyCode.Unknown,
     emoteId="507770239",emoteLoop=false,emoteName="Wave",emoteBind=Enum.KeyCode.Unknown,
     noSlowdown=false,selfHealBind=Enum.KeyCode.Unknown,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
@@ -2657,7 +2657,7 @@ createMover(cross,"crosshair","Прицел",function()return state.crosshair en
 createMover(state.hiddenCircle,"hiddenFov","FOV Hidden M2",function()return state.hiddenAim and state.showHiddenFov and isKiller(player)end,{0.5,0.5})
 createMover(floatingMenu,"menuButton","Меню",function()return true end,{0.035,0.5})
 createMover(mobileParry,"parryButton","Парирование",function()return Input.TouchEnabled end,{0.07,0.59})
-createMover(state.nextRoundHud,"nextRoundHud","Следующий раунд",function()return state.showNextHud end,{0.75,0.18})
+createMover(state.nextRoundHud,"nextRoundHud","Следующий раунд",function()return state.showNextHud or state.nextRound or state.nextRoundMap or state.nextRoundKiller end,{0.75,0.18})
 
 state.applyHudPositions=function()
     if not state.alive then return end
@@ -3861,6 +3861,8 @@ local text=label("Следующий раунд: нет опубликованн
 text.Name="NextRoundInfo"
 toggle("nextRound","Объявленные киллер / карта",4634)
 toggle("showNextHud","Следующий раунд на экране",4635)
+toggle("nextRoundMap","Следующая карта на экране",4636)
+toggle("nextRoundKiller","Следующий киллер на экране",4637)
 local function read(names)
     for _,name in ipairs(names)do for _,root in ipairs({ReplicatedStorage,Workspace})do
         local value=root:GetAttribute(name)
@@ -3907,11 +3909,17 @@ end
 local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.5 then return end;elapsed=0
-    state.nextRoundHud.Visible=state.showNextHud
-    if not state.nextRound and not state.showNextHud then text.Text="Следующий раунд: выключено.";return end
+    local showBoth=state.nextRound or state.showNextHud
+    local showMap=showBoth or state.nextRoundMap
+    local showKiller=showBoth or state.nextRoundKiller
+    state.nextRoundHud.Visible=showMap or showKiller
+    if not showMap and not showKiller then text.Text="Следующий раунд: выключено.";return end
     local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})or "нет данных"
     local map=read({"NextMap","NextMapName","UpcomingMap"})or "нет данных"
-    local value="Киллер: "..killer.."\nКарта: "..map
+    local lines={}
+    if showKiller then lines[#lines+1]="Киллер: "..killer end
+    if showMap then lines[#lines+1]="Карта: "..map end
+    local value=table.concat(lines,"\n")
     text.Text="Данные игры\n"..value
     state.nextRoundHudText.Text="Следующий раунд · данные игры\n"..value
 end)
