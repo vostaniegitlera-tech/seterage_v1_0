@@ -1068,6 +1068,33 @@ local seenTracks = setmetatable({}, {__mode = "k"})
 local watched = {}
 local lastParry, parryEpoch = -math.huge, 0
 local parryEvents={}
+local nativeParryClient,nativeParryTool
+local nativeScanAt,nativeScanning=0,false
+local function findNativeParry()
+    local char=player.Character
+    local tool=char and char:FindFirstChild("Parrying Dagger")
+    if nativeParryClient and nativeParryTool==tool and tool and tool.Parent==char then return end
+    nativeParryClient,nativeParryTool=nil,nil
+    if not tool or type(getgc)~="function"or nativeScanning or os.clock()<nativeScanAt then return end
+    nativeScanAt=os.clock()+3;nativeScanning=true
+    task.spawn(function()
+        local ok,module=pcall(function()
+            return require(game:GetService("ReplicatedStorage").Modules.Items.ParryingDagger.ParryClient)
+        end)
+        local found,objects=pcall(getgc,true)
+        if ok and found and type(objects)=="table"then
+            for _,candidate in ipairs(objects)do
+                if type(candidate)=="table"and rawget(candidate,"tool")==tool and getmetatable(candidate)==module then
+                    if state.alive and state.parry and player.Character==char and tool.Parent==char then
+                        nativeParryClient,nativeParryTool=candidate,tool
+                    end
+                    break
+                end
+            end
+        end
+        nativeScanning=false
+    end)
+end
 local function parryRecord(event,track,reason)
     local anim=track and track.Animation
     local row={t=os.clock(),event=event,reason=reason,animation=anim and anim.AnimationId,name=anim and anim.Name}
@@ -1102,6 +1129,15 @@ local function canParry(who, track, observed)
     return true
 end
 local function parryInput()
+    if nativeParryClient and nativeParryTool and nativeParryTool.Parent==player.Character then
+        local client=nativeParryClient
+        if not client:CanUse()then error("dagger not ready")end
+        task.spawn(function()
+            local ok,err=pcall(function()client:Parry()end)
+            if not ok then parryRecord("native error",nil,tostring(err))end
+        end)
+        return "game handler"
+    end
     if not virtualInput then error("Input unavailable") end
     if Input.TouchEnabled and not Input.KeyboardEnabled then
         local root = player.PlayerGui:FindFirstChild("Survivor-mob")
@@ -1115,16 +1151,23 @@ local function parryInput()
         local ok, reason = pcall(function() virtualInput:SendTouchEvent(8823, 0, point.X, point.Y) end)
         pcall(function() virtualInput:SendTouchEvent(8823, 2, point.X, point.Y) end)
         if not ok then error(reason) end
-    elseif state.parryInput == "MouseButton2" then
-        local point = Input:GetMouseLocation()
-        local ok, reason = pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, 1, true, game, 0) end)
-        pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, 1, false, game, 0) end)
-        if not ok then error(reason) end
     else
-        local keyCode = Enum.KeyCode[state.parryInput]
-        local ok, reason = pcall(function() virtualInput:SendKeyEvent(true, keyCode, false, game) end)
-        pcall(function() virtualInput:SendKeyEvent(false, keyCode, false, game) end)
-        if not ok then error(reason) end
+        local configured=player:GetAttribute("kb_item")
+        local inputName=type(configured)=="string"and configured~=""and configured or "MouseButton2"
+        local mouseButtons={MouseButton1=0,MouseButton2=1,MouseButton3=2}
+        local mouseButton=mouseButtons[inputName]
+        if mouseButton~=nil then
+            local point = Input:GetMouseLocation()
+            local ok, reason = pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, mouseButton, true, game, 0) end)
+            pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, mouseButton, false, game, 0) end)
+            if not ok then error(reason) end
+        else
+            local keyCode = Enum.KeyCode[inputName]
+            if not keyCode or keyCode==Enum.KeyCode.Unknown then error("Unknown item key: "..inputName)end
+            local ok, reason = pcall(function() virtualInput:SendKeyEvent(true, keyCode, false, game) end)
+            pcall(function() virtualInput:SendKeyEvent(false, keyCode, false, game) end)
+            if not ok then error(reason) end
+        end
     end
 end
 local function handleAttack(who,track,observed)
@@ -1139,12 +1182,26 @@ local function handleAttack(who,track,observed)
     seenTracks[track]=true
     local ok,err=pcall(parryInput) -- Run in the animation callback, without task.delay(0).
     if ok then lastParry=os.clock()end
-    parryRecord(ok and "input sent"or "input error",track,ok and nil or tostring(err))
+    parryRecord(ok and "input sent"or "input error",track,ok and(err or "virtual input")or tostring(err))
     status.Text=ok and "Парирование: ввод отправлен."or "Парирование: ввод недоступен."
 end
 local function clearParryConnections()
     for _, conn in pairs(parryConnections) do conn:Disconnect() end
     parryConnections, watched = {}, {}
+end
+local parryResultConnection
+local function watchParryResult()
+    if parryResultConnection then return end
+    local remotes=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+    local items=remotes and remotes:FindFirstChild("Items")
+    local dagger=items and items:FindFirstChild("Parrying Dagger")
+    local result=dagger and dagger:FindFirstChild("parryResult")
+    if result and result:IsA("RemoteEvent")then
+        parryResultConnection=connect(result.OnClientEvent,function(success,cooldown,permanent,reset,character)
+            if not state.parry or character~=player.Character then return end
+            parryRecord("server result",nil,reset and "reset"or(success and "success"or "failed"))
+        end)
+    end
 end
 resetParry = function()
     parryEpoch = parryEpoch + 1
@@ -1153,6 +1210,8 @@ resetParry = function()
 end
 local function watchKillers()
     if not state.parry then return end
+    watchParryResult()
+    findNativeParry()
     local keep = {}
     for _, who in ipairs(Players:GetPlayers()) do
         if who ~= player and isKiller(who) and who.Character then
@@ -1186,7 +1245,8 @@ state.parryDiagnostics=function()
         if node:IsA("GuiButton")then controls[#controls+1]={name=node.Name,visible=visibleUI(node),class=node.ClassName}end
     end end
     return {enabled=state.parry,watchedKillers=n,radius=state.parryRadius,faceSensitivity=state.faceSensitivity,
-        input=state.parryInput,touch=Input.TouchEnabled,keyboard=Input.KeyboardEnabled,controls=controls,events=parryEvents}
+        input=player:GetAttribute("kb_item")or "MouseButton2",nativeHandler=nativeParryClient~=nil,
+        touch=Input.TouchEnabled,keyboard=Input.KeyboardEnabled,controls=controls,events=parryEvents}
 end
 state.setParry = function(enabled)
     if enabled and not virtualInput then status.Text = "Парирование: ввод недоступен."; return end
