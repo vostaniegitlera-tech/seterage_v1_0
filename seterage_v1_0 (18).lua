@@ -3515,6 +3515,17 @@ local function vault(track)
     if ok then
         tracks[track]=speed
         local char=player.Character;local root=char and char:FindFirstChild("HumanoidRootPart")
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        task.delay(vaultTargetDuration,function()
+            if not state.alive or not state.fastVault or player.Character~=char or not hum or not hum.Parent or state.isDowned(char)then return end
+            local action=char:GetAttribute("ActionState")
+            if type(action)=="string"and action~=""and not action:lower():find("vault",1,true)then return end
+            local speedValue=char:GetAttribute("Speed")
+            if hum.WalkSpeed==0 and hum.MoveDirection.Magnitude>0 and type(speedValue)=="number"and speedValue>0 then
+                local restored=pcall(function()hum.WalkSpeed=speedValue end)
+                state.vaultRuntime.movementRestore={attempted=true,accepted=restored,speed=speedValue}
+            end
+        end)
         if animator then
             if finesseTrack then pcall(function()finesseTrack:Stop();finesseTrack:Destroy()end);finesseTrack=nil end
             local animationObject=Instance.new("Animation")
