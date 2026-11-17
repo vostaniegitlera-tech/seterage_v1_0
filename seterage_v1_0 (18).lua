@@ -3656,11 +3656,13 @@ end)
 
 end
 
--- Local R6 tool using the two animation assets from Universal-Jerk-Off.
+-- Local R6 tool with bounded animation playback while equipped.
 do
 local tool,enabled=nil,false
 local tracks={}
+local motionConnection
 local function stopToolAnimations()
+    if motionConnection then motionConnection:Disconnect();motionConnection=nil end
     for _,track in ipairs(tracks)do pcall(function()track:Stop(.1);track:Destroy()end)end
     tracks={}
 end
@@ -3681,18 +3683,37 @@ local function giveTool()
         if not hum or hum.RigType~=Enum.HumanoidRigType.R6 or not animator then
             status.Text="Jerk Off: нужна модель R6 с Animator.";return
         end
-        for index,id in ipairs({"99198989","168086975"})do
+        for _,id in ipairs({"72042024","168268306"})do
             local animation=Instance.new("Animation");animation.AnimationId="rbxassetid://"..id
             local ok,track=pcall(function()return animator:LoadAnimation(animation)end)
             animation:Destroy()
             if not ok or not track then
                 stopToolAnimations();status.Text="Не удалось загрузить анимацию Jerk Off.";return
             end
-            track.Priority=Enum.AnimationPriority.Action;track.Looped=index==1
+            track.Priority=Enum.AnimationPriority.Action;track.Looped=false
             tracks[#tracks+1]=track
-            local played=pcall(function()track:Play(.1)end)
+            local played=pcall(function()track:Play(.1);track:AdjustSpeed(0)end)
             if not played then stopToolAnimations();status.Text="Не удалось запустить Jerk Off.";return end
         end
+        local motion,pose=tracks[1],tracks[2]
+        local motionReady,poseReady=false,false
+        motionConnection=RunService.Heartbeat:Connect(function()
+            if not motionReady and motion.Length>.9 then
+                motion.TimePosition=.5;motion:AdjustSpeed(1);motionReady=true
+            elseif motionReady and motion.TimePosition>=.9 then
+                motion.TimePosition=.5
+            elseif motionReady and not motion.IsPlaying then
+                motion:Play(0);motion.TimePosition=.5
+            end
+            if not poseReady and pose.Length>1 then
+                pose.TimePosition=1;poseReady=true
+            end
+        end)
+        task.delay(5,function()
+            if tracks[1]==motion and(not motionReady or not poseReady)then
+                stopToolAnimations();status.Text="Анимация Jerk Off не загрузилась."
+            end
+        end)
         status.Text="Jerk Off: анимация запущена локально."
     end)
     tool.Unequipped:Connect(stopToolAnimations)
