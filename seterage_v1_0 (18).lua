@@ -1871,7 +1871,7 @@ local function validateConfig(text)
     if type(groups)~="table"then error("Неверные группы")end
     for id,closed in pairs(groups)do
         local legacyAudio={audioSources=true,misfireAudio=true,shotAudio=true,daggerAudio=true}
-        local key=legacyAudio[id]and "customAudio"or((id=="bearTrap"or id=="skillCalibration")and "skillchecks"or id)
+        local key=legacyAudio[id]and "customAudio"or((id=="bearTrap"or id=="skillCalibration")and "skillchecks"or(id=="playerEsp"and "worldEsp"or id))
         if type(closed)~="boolean"then error("Неверная группа")end
         if key~="cosmetic"and key~="hudLayout"then
             if not state.groupIds or not state.groupIds[key]then error("Неверная группа")end
@@ -4487,7 +4487,7 @@ local function groupFor(section,y)
         if y>=4000 then return "worldEsp","Объекты",3 end
         if y>=920 then return "screenHud","Экран",4 end
         if y>=230 and y<=560 then return "camera","Камера",2 end
-        return "playerEsp","Игроки",1
+        return "worldEsp","Объекты",3
     end
     if y==5882 then return "diagnostics","Диагностика",8 end
     if y>=9700 then return "utilities","Утилиты",9 end
