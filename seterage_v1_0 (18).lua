@@ -3517,13 +3517,17 @@ local function vault(track)
         local char=player.Character;local root=char and char:FindFirstChild("HumanoidRootPart")
         local hum=char and char:FindFirstChildOfClass("Humanoid")
         task.delay(vaultTargetDuration,function()
+            local details={alive=state.alive,fastVault=state.fastVault,sameCharacter=player.Character==char,humanoid=hum~=nil,parented=hum and hum.Parent~=nil}
+            state.vaultRuntime.movementRestore=details
             if not state.alive or not state.fastVault or player.Character~=char or not hum or not hum.Parent or state.isDowned(char)then return end
             local action=char:GetAttribute("ActionState")
+            details.action=action;details.downed=state.isDowned(char);details.walkSpeed=hum.WalkSpeed;details.moveMagnitude=hum.MoveDirection.Magnitude
             if type(action)=="string"and action~=""and not action:lower():find("vault",1,true)then return end
             local speedValue=char:GetAttribute("Speed")
+            details.speedValue=speedValue
             if hum.WalkSpeed==0 and hum.MoveDirection.Magnitude>0 and type(speedValue)=="number"and speedValue>0 then
                 local restored=pcall(function()hum.WalkSpeed=speedValue end)
-                state.vaultRuntime.movementRestore={attempted=true,accepted=restored,speed=speedValue}
+                details.attempted=true;details.accepted=restored
             end
         end)
         if animator then
