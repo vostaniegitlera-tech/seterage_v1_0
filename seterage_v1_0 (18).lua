@@ -42,7 +42,7 @@ end
 local state = {
     alive = true, esp = false,
     trapMode="Perfect", showHiddenFov=false, showParryFov=false, showTargetLine=false,
-    fastVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
+    fastVault=false, spikeVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
     moonForward=false,moonBackward=false,moonForwardBind=Enum.KeyCode.Unknown,moonBackwardBind=Enum.KeyCode.Unknown,
     emoteId="507770239",emoteLoop=false,emoteName="Wave",emoteBind=Enum.KeyCode.Unknown,
     noSlowdown=false,autoSelfHeal=false,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
@@ -868,6 +868,7 @@ state.cleanup = function()
     if state.flushConfig then pcall(state.flushConfig) end
     state.alive = false
     if state.resetVaultObserver then pcall(state.resetVaultObserver)end
+    if state.resetSpikeVault then pcall(state.resetSpikeVault)end
     if state.resetUtilities then pcall(state.resetUtilities)end
     if state.resetSurvival then pcall(state.resetSurvival)end
     if state.resetSprint then pcall(state.resetSprint)end
@@ -1235,6 +1236,7 @@ label("Пауза между попытками: 0.2–5 секунд", 1782, 24
 numberInput(1810, 0.2, 0.2, 5, function(v) state.parryCooldown = v end)
 label("Только известные анимации атак; не все убийцы.\nНужен экипированный даггер. Проверь ввод в игре.", 1852, 44)
 local function disableAll()
+    if state.resetSpikeVault then state.resetSpikeVault()end
     if state.resetUtilities then state.resetUtilities()end
     if state.resetSurvival then state.resetSurvival()end
     if state.resetSprint then state.resetSprint()end
@@ -1584,10 +1586,63 @@ connect(RunService.Heartbeat,function()pcall(updateKnock)end)
 label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
 toggle("antiKnock","Режим бога (Anti Knock)",2440)
 toggle("fastVault","Fast Vault · эксперимент",2490)
+toggle("spikeVault","Перелаз через шипы · эксперимент",2493)
 label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
 toggle("vaultSpeedEnabled","Vault Speed",2495)
 label("Скорость перелаза: 1–20",2496,24)
 numberInput(2497,1,1,20,function(v)state.vaultSpeedValue=v;if state.updateVaultSpeed then state.updateVaultSpeed()end end)
+do
+local collection=game:GetService("CollectionService")
+local installed
+state.spikeVaultDiagnostics={installed=false}
+state.resetSpikeVault=function()
+    local entry=installed;installed=nil
+    if entry then pcall(function()
+        if entry.module.findNearestPoint==entry.wrapper then entry.module.findNearestPoint=entry.original end
+    end)end
+    state.spikeVaultDiagnostics.installed=false
+end
+local function installSpikeVault()
+    if installed then return end
+    local ok,module=pcall(function()return require(game:GetService("ReplicatedStorage").Modules.Survivors.SurvivorProximity)end)
+    if not ok or type(module)~="table"or type(module.findNearestPoint)~="function"then
+        state.spikeVaultDiagnostics.error="SurvivorProximity unavailable";return
+    end
+    local original=module.findNearestPoint
+    local wrapper=function(self,tag,radius)
+        if not state.alive or not state.spikeVault or tag~="VaultPoint"or isKiller(player)
+            or not self.humanoidRootPart or type(radius)~="number"then
+            return original(self,tag,radius)
+        end
+        local changed,seen={},{}
+        for _,point in ipairs(collection:GetTagged("VaultPoint"))do
+            if point:IsA("BasePart")and point.Parent and not seen[point.Parent]
+                and (point.Position-self.humanoidRootPart.Position).Magnitude<=radius
+                and collection:HasTag(point.Parent,"Blocked")then
+                seen[point.Parent]=true
+                local removed=pcall(function()collection:RemoveTag(point.Parent,"Blocked")end)
+                if removed then changed[#changed+1]=point.Parent end
+            end
+        end
+        local result=table.pack(pcall(original,self,tag,radius))
+        for _,window in ipairs(changed)do pcall(function()
+            if window.Parent and not collection:HasTag(window,"Blocked")then collection:AddTag(window,"Blocked")end
+        end)end
+        state.spikeVaultDiagnostics.lastBlocked=#changed
+        if not result[1]then error(result[2],0)end
+        return table.unpack(result,2,result.n)
+    end
+    local success,err=pcall(function()module.findNearestPoint=wrapper end)
+    state.spikeVaultDiagnostics.installed=success
+    state.spikeVaultDiagnostics.error=not success and tostring(err)or nil
+    if success then installed={module=module,original=original,wrapper=wrapper}end
+end
+local elapsed=0
+connect(RunService.Heartbeat,function(dt)
+    elapsed=elapsed+dt;if elapsed<.25 then return end;elapsed=0
+    if state.alive and state.spikeVault then installSpikeVault()elseif installed then state.resetSpikeVault()end
+end)
+end
 label("Движение в нокдауне. Предметы, ремонт и перелаз не разблокируются.",2482,44)
 toggle("antiBlind","Anti Blind",2534)
 label("Скрывает эффекты с именем Blind.\nЕсли VD использует другие имена, потребуется адаптация.",2576,44)
@@ -4091,7 +4146,7 @@ state.diagnosticReport=function()
         skillMode=state.skillMode,stretch=state.stretch,stretchMode=state.stretchMode,antiKnock=state.antiKnock},
         role=player.Team and player.Team.Name or "unknown",rates=state.rateAdapters,performance=state.perf,cameraAdapter=state.cameraAdapter,zoneSource=state.skillZoneSource,skillUI=state.lastSkillUI,
         animations=state.vaultObservations or {},skillTrace=state.skillTrace,windowESP=state.windowEspDiagnostics and state.windowEspDiagnostics()or nil,
-        parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,objects={}}
+        parry=state.parryDiagnostics and state.parryDiagnostics()or nil,vault=state.vaultRuntime,spikeVault=state.spikeVaultDiagnostics,objects={}}
     local camera=Workspace.CurrentCamera
     if camera then report.camera={viewport={camera.ViewportSize.X,camera.ViewportSize.Y},fov=camera.FieldOfView}
         pcall(function()report.camera.viewStretch=camera.ViewStretch end)
@@ -4228,7 +4283,7 @@ local shortLabels={
     [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
 }
 local function route(y)
-    if y==2490 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
+    if y==2490 or y==2493 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
     if y>=7000 and y<9300 then return "survival"end
     if y>=3600 and y<=3900 then return "survival"end
     if y>=6000 and y<7000 then return "esp"end
