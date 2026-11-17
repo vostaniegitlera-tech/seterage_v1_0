@@ -3525,9 +3525,16 @@ local function vault(track)
             if type(action)=="string"and action~=""and not action:lower():find("vault",1,true)then return end
             local speedValue=char:GetAttribute("Speed")
             details.speedValue=speedValue
-            if hum.WalkSpeed==0 and hum.MoveDirection.Magnitude>0 and type(speedValue)=="number"and speedValue>0 then
-                local restored=pcall(function()hum.WalkSpeed=speedValue end)
-                details.attempted=true;details.accepted=restored
+            if type(speedValue)~="number"or speedValue<=0 then return end
+            local deadline=os.clock()+.25
+            while os.clock()<deadline and state.alive and state.fastVault and player.Character==char and hum.Parent and hum.Health>0 and not state.isDowned(char)do
+                local currentAction=char:GetAttribute("ActionState")
+                if type(currentAction)=="string"and currentAction~=""and not currentAction:lower():find("vault",1,true)then break end
+                if hum.WalkSpeed==0 and hum.MoveDirection.Magnitude>0 then
+                    local restored=pcall(function()hum.WalkSpeed=speedValue end)
+                    details.attempted=true;details.accepted=restored;details.writes=(details.writes or 0)+1
+                end
+                RunService.Heartbeat:Wait()
             end
         end)
         if animator then
