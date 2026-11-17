@@ -77,7 +77,7 @@ local state = {
 
     crossSize = 12, crossColor = Color3.fromRGB(255, 255, 255),
     uiScale = 1, menuAlpha = 0, parryRadius = 12, faceSensitivity = 0.7,
-    parryBind = Enum.KeyCode.Unknown, parryDelay = 0, parryCooldown = 1,
+    parryBind = Enum.KeyCode.Unknown, parryDelay = 0, parryCooldown = 0.2,
     parryInput = "MouseButton2",
 
     autoSkill = false, autoTrap = false,
@@ -1077,10 +1077,10 @@ end
 local function parryGeometry(distance, facing, radius, sensitivity)
     return distance > 0.001 and distance <= radius and facing >= sensitivity
 end
-local function canParry(who, track)
+local function canParry(who, track, observed)
     if not state.alive or not state.parry or not isKiller(who)then return false,"disabled or killer unrecognised"end
     if Input:GetFocusedTextBox()then return false,"text box focused"end
-    if not track.IsPlaying or track.TimePosition > 0.6 then return false,"animation stopped or too late"end
+    if (not observed and not track.IsPlaying)or track.TimePosition > 0.6 then return false,"animation stopped or too late"end
     local own = player.Character
     local enemy = who.Character
     local ownRoot = own and own:FindFirstChild("HumanoidRootPart")
@@ -1129,7 +1129,7 @@ local function parryInput()
 end
 local function handleAttack(who,track,observed)
     if not state.parry or state.isDowned() or seenTracks[track]then return end
-    local eligible,reason=canParry(who,track)
+    local eligible,reason=canParry(who,track,observed)
     if not eligible then if observed then parryRecord("skipped",track,reason)end;return end
     local anim=track.Animation
     local id=anim and anim.AnimationId:match("%d+")
@@ -1199,11 +1199,11 @@ end
 label("АВТО ДАГГЕР / ПАРИРОВАНИЕ", 1340, 24)
 toggle("parry", "Автопарирование", 1370)
 toggle("showParryFov","Показывать радиус даггера",1371)
-label("Радиус: 2–25 студов", 1412, 24)
+label("Расстояние до убийцы: 2–25 студов", 1412, 24)
 numberInput(1440, 12, 2, 25, function(v) state.parryRadius = v end)
-label("Face Sensitivity: −1…1 (по умолчанию 0.7)", 1482, 24)
+label("Направление взгляда убийцы: −1…1", 1482, 24)
 numberInput(1510, 0.7, -1, 1, function(v) state.faceSensitivity = v end)
-label("1 = убийца смотрит точно на тебя;\n−1 = направление не учитывается.", 1552, 40)
+label("1 — смотрит точно на тебя; 0 — в твою сторону;\n−1 — срабатывает с любого направления.", 1552, 40)
 local waitingBind = false
 local bindButton
 bindButton = button("Бинд авто парирования: не назначен", 1600, function()
@@ -1233,7 +1233,7 @@ local function textSetting(y, initial, accept)
     end)
     return box
 end
-label("Ввод парирования: MouseButton2 или клавиша", 1642, 24)
+label("Кнопка парирования: MouseButton2 или клавиша", 1642, 24)
 textSetting(1670, "MouseButton2", function(value)
     value = value:match("^%s*(.-)%s*$")
     if value == "MouseButton2" then state.parryInput = value; return value end
@@ -1246,8 +1246,8 @@ textSetting(1670, "MouseButton2", function(value)
     end
     status.Text = "Пример: MouseButton2, Q, E, F. Не используй бинд переключения."
 end)
-label("Интервал между попытками: 0.2–5 секунд", 1782, 24)
-numberInput(1810, 1, 0.2, 5, function(v) state.parryCooldown = v end)
+label("Пауза между попытками: 0.2–5 секунд", 1782, 24)
+numberInput(1810, 0.2, 0.2, 5, function(v) state.parryCooldown = v end)
 label("Только известные анимации атак; не все убийцы.\nНужен экипированный даггер. Проверь ввод в игре.", 1852, 44)
 label("Дополнительные ID анимаций атак, через запятую", 1904, 24)
 textSetting(1932, "", function(value)
@@ -1317,11 +1317,7 @@ connect(Input.InputBegan, function(input, processed)
         state.setParry(not state.parry)
     end
 end)
-local scanTime = 0
-connect(RunService.Heartbeat, function(dt)
-    scanTime = scanTime + dt
-    if scanTime < 0.05 then return end
-    scanTime = 0
+connect(RunService.Heartbeat, function()
     watchKillers()
 end)
 -- Keep unused scroll area out of the menu.
