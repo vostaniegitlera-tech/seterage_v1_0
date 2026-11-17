@@ -45,7 +45,7 @@ local state = {
     fastVault=false, spikeVault=false, vaultSpeedEnabled=false, vaultSpeedValue=1, shaders=false, shaderPreset="Soft", stretchMode="Auto", nextRound=false, showNextHud=false, backgroundEnabled=false, backgroundImage="",
     moonForward=false,moonBackward=false,moonForwardBind=Enum.KeyCode.Unknown,moonBackwardBind=Enum.KeyCode.Unknown,
     emoteId="507770239",emoteLoop=false,emoteName="Wave",emoteBind=Enum.KeyCode.Unknown,
-    noSlowdown=false,autoSelfHeal=false,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
+    noSlowdown=false,fullbright=false,killerWarn=false,antiAfk=false,maxZoom=false,
     espMeters={generators=true,pumpkins=true,windows=true,pallets=true,hooks=true,killerDistance=true,survivorDistance=true,killerHighlight=false},
     perf={worldProcessed=0,worldMaxBatch=0,skillSnapshots=0},
     autoRunPC=false,autoRunMobile=false,profileName="Default",profiles={},
@@ -3898,10 +3898,8 @@ end
 do
 local slowHum,slowOriginal,slowApplied
 local speedHum,normalSpeed,sprintSpeed
-local healingTool,healButton,healConnection,buttonIssued,healStarted
-local nextHealTry=0
-local scanAt=0
-local healInfo=label("Самолечение: нужен доступный игровой способ.",3894,34);healInfo.Name="SelfHealInfo"
+local healSession
+local healInfo=label("Самохил: нажми кнопку, когда ранен и не нокнут.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
 local function boolFlag(object,name)
     if not object then return false end
     local value=object:GetAttribute(name)
@@ -3930,49 +3928,44 @@ local function releaseSlow(ended)
     slowHum,slowOriginal,slowApplied=nil,nil,nil
 end
 local function stopHealing()
-    if healConnection then healConnection:Disconnect();healConnection=nil end
-    buttonIssued=nil;healStarted=nil
-    if healingTool then pcall(function()healingTool:Deactivate()end)end
-    healingTool=nil;state.selfHealing=false
+    local session=healSession;healSession=nil;state.selfHealing=false
+    if session then pcall(function()
+        session.remote:FireServer(session.root,false,session.requestId,session.char)
+    end)end
 end
 state.resetSurvival=function()releaseSlow(false);stopHealing()end
 local function injured(char,hum)
-    if state.isDowned(char)or hum.Health<=0 then return false end
-    if boolFlag(char,"Injured")or boolFlag(hum,"Injured")then return true end
-    for _,object in ipairs({char,hum})do
-        local healthState=object:GetAttribute("HealthState")
-        if type(healthState)=="string"and(healthState:lower()=="injured"or healthState:lower()=="wounded")then return true end
-    end
-    return type(hum.MaxHealth)=="number"and hum.MaxHealth>0 and hum.Health<hum.MaxHealth
-end
-local function findSelfHealButton()
-    if healButton and healButton.Parent and visibleUI(healButton)then return healButton end
-    healButton=nil
-    if os.clock()<scanAt then return nil end;scanAt=os.clock()+1
-    for _,item in ipairs(player.PlayerGui:GetDescendants())do
-        if item:IsA("TextButton")or item:IsA("ImageButton")then
-            local name=item.Name:lower():gsub("[^a-z]","")
-            if(name=="selfheal"or name=="healself"or name=="selfhealbutton")and visibleUI(item)then healButton=item;break end
-        end
-    end
-    return healButton
-end
-local function selfHealTool(char)
-    -- Activate() is used only when the tool explicitly declares a self-heal action.
-    for _,tool in ipairs(char:GetChildren())do if tool:IsA("Tool")and tool.Enabled~=false then
-        local action=tool:GetAttribute("UseAction")or tool:GetAttribute("Action")
-        if tool:GetAttribute("SelfHealOnActivate")==true or action=="SelfHeal"or action=="HealSelf"then return tool end
-    end end
+    return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
 end
 toggle("noSlowdown","No slowdown",3800)
 label("Восстанавливает обычную скорость при распознанном замедлении.",3840,28)
-toggle("autoSelfHeal","Авто самолечение · ранен, не нокнут",3860)
+button("Самохил / остановить",3860,function()
+    if healSession then stopHealing();healInfo.Text="Самохил остановлен.";return end
+    local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
+    local root=char and char:FindFirstChild("HumanoidRootPart")
+    if not char or not hum or not root or isKiller(player)or not injured(char,hum)then
+        healInfo.Text="Самохил доступен раненому игроку без нокдауна.";return
+    end
+    if hum.MoveDirection.Magnitude>.05 or busy(char,hum)then
+        healInfo.Text="Остановись и заверши текущее действие.";return
+    end
+    local remotes=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+    local healing=remotes and remotes:FindFirstChild("Healing")
+    local remote=healing and healing:FindFirstChild("HealEvent")
+    if not remote or not remote:IsA("RemoteEvent")then healInfo.Text="Запрос лечения не найден.";return end
+    local requestId=game:GetService("HttpService"):GenerateGUID(false)
+    local ok=pcall(function()remote:FireServer(root,true,requestId,char)end)
+    if not ok then healInfo.Text="Не удалось отправить запрос лечения.";return end
+    healSession={remote=remote,root=root,char=char,hum=hum,requestId=requestId,start=os.clock()}
+    state.selfHealing=true
+    healInfo.Text="Запрос отправлен. Ждём результат игры."
+end)
 local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.1 then return end;elapsed=0
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local active=state.alive and hum and hum.Health>0 and not state.isDowned(char)
-    if hum~=speedHum then releaseSlow(false);speedHum=hum;normalSpeed,sprintSpeed=nil,nil;stopHealing();healButton=nil;scanAt=0 end
+    if hum~=speedHum then releaseSlow(false);speedHum=hum;normalSpeed,sprintSpeed=nil,nil;stopHealing()end
     local hasSlow=active and slowed(char,hum)
     local isBusy=active and busy(char,hum)
     if active and not hasSlow and not isBusy and hum.WalkSpeed>=4 then
@@ -3989,44 +3982,17 @@ connect(RunService.Heartbeat,function(dt)
             state.slowdownStatus="ordinary speed restored locally"
         else state.slowdownStatus="waiting for ordinary speed sample"end
     else releaseSlow(active and not hasSlow)end
-    if not state.autoSelfHeal or not active or isKiller(player)or Input:GetFocusedTextBox()or state.capturingBind
-        or anyFlag(char,hum,{"Hooked","IsHooked","Carried","BeingCarried","Stunned","Frozen","Repairing","Vaulting","IsVaulting","Attacking"})
-        or(hum.MoveDirection and hum.MoveDirection.Magnitude>.05)
-        or busy(char,hum)and not state.selfHealing or not injured(char,hum)then
-        stopHealing();return
+    if healSession then
+        if player.Character~=healSession.char or not active or isKiller(player)
+            or hum.MoveDirection.Magnitude>.05
+            or anyFlag(char,hum,{"Hooked","IsHooked","Carried","BeingCarried","Stunned","Frozen","Repairing","Vaulting","IsVaulting","Attacking"})then
+            stopHealing();healInfo.Text="Самохил остановлен."
+        elseif not injured(char,hum)then
+            stopHealing();healInfo.Text="Здоровье восстановлено."
+        elseif os.clock()-healSession.start>30 then
+            stopHealing();healInfo.Text="Самохил не подтверждён игрой."
+        end
     end
-    if healStarted and os.clock()-healStarted>30 and not boolFlag(char,"Healing")and not boolFlag(hum,"Healing")then
-        stopHealing();nextHealTry=os.clock()+3;healInfo.Text="Самолечение не подтверждено игрой.";return
-    end
-    local tool=selfHealTool(char)
-    if healingTool and(healingTool~=tool or not healingTool.Parent)then stopHealing()end
-    if os.clock()<nextHealTry then return end
-    nextHealTry=os.clock()+1.5
-    if tool then
-        if healingTool then return end
-        local ok=pcall(function()tool:Activate()end)
-        if ok then
-            healingTool=tool;state.selfHealing=true;healStarted=os.clock()
-            pcall(function()healConnection=tool.Deactivated:Connect(stopHealing)end)
-            healInfo.Text="Отправлен запуск самолечения. Здоровье подтверждает игра."
-        else healInfo.Text="Не удалось использовать предмет самолечения."end
-        return
-    end
-    local button=findSelfHealButton()
-    if button and virtualInput then
-        if buttonIssued==button then return end
-        local point=button.AbsolutePosition+button.AbsoluteSize/2+game:GetService("GuiService"):GetGuiInset()
-        local ok=pcall(function()
-            if Input.TouchEnabled then virtualInput:SendTouchEvent(8825,0,point.X,point.Y)
-            else virtualInput:SendMouseButtonEvent(point.X,point.Y,0,true,game,0)end
-        end)
-        pcall(function()
-            if Input.TouchEnabled then virtualInput:SendTouchEvent(8825,2,point.X,point.Y)
-            else virtualInput:SendMouseButtonEvent(point.X,point.Y,0,false,game,0)end
-        end)
-        if ok then buttonIssued=button end
-        healInfo.Text=ok and "Отправлено нажатие Self Heal; результат подтверждает игра."or "Ввод самолечения недоступен."
-    else healInfo.Text="Способ самолечения не найден. Нужны игровой предмет/перк и доступный обработчик."end
 end)
 end
 
@@ -4172,7 +4138,7 @@ state.diagnosticReport=function()
     end
     report.slowdown=state.slowdownStatus
     report.emotes=state.emoteDiagnostics and state.emoteDiagnostics()or nil
-    report.healing={active=state.selfHealing or false,equipped={}}
+    report.healing={active=state.selfHealing or false,status=state.healInfo and state.healInfo.Text or nil,equipped={}}
     if char then for _,item in ipairs(char:GetChildren())do if item:IsA("Tool")then
         report.healing.equipped[#report.healing.equipped+1]={name=item.Name,action=item:GetAttribute("UseAction")or item:GetAttribute("Action"),selfHealOnActivate=item:GetAttribute("SelfHealOnActivate")}
     end end end
