@@ -622,7 +622,7 @@ restoreCamera=function(field)
         end
     end)end
 end
-local unsupportedCamera
+local unsupportedCamera,unsupportedUntil=nil,0
 local function updateCamera()
     if not state.alive then return end
     local cam=Workspace.CurrentCamera;if not cam then return end
@@ -639,16 +639,16 @@ local function updateCamera()
     if not state.stretch then return end
     local view=cam.ViewportSize;if view.X<=0 or view.Y<=0 then return end
     local target=state.aspect=="4:3"and 4/3 or(state.aspect=="16:10"and 16/10 or nil)
-    local ratio=math.clamp(target and target/(view.X/view.Y)or 1/state.stretchPower,0.5,2)
+    local ratio=math.clamp(target and(view.X/view.Y)/target or state.stretchPower,0.5,2)
     local nativeOk=false
-    if state.stretchMode~="Matrix"and unsupportedCamera~=cam then
+    if state.stretchMode~="Matrix"and(unsupportedCamera~=cam or os.clock()>=unsupportedUntil)then
         nativeOk=pcall(function()
             local old=cam.ViewStretch;if type(old)~="number"then error("ViewStretch unavailable")end
             if saved.mode==nil then saved.mode=cam.FieldOfViewMode;saved.stretch=old end
             cam.FieldOfViewMode=Enum.FieldOfViewMode.Vertical;cam.ViewStretch=ratio
             if math.abs(cam.ViewStretch-ratio)>0.001 then error("ViewStretch write rejected")end
         end)
-        if not nativeOk then unsupportedCamera=cam end
+        if not nativeOk then unsupportedCamera=cam;unsupportedUntil=os.clock()+2 end
     end
     if nativeOk then state.cameraAdapter="Native";return end
     if state.stretchMode=="Native"then state.cameraAdapter="Unsupported";status.Text="Нативный растяг недоступен. Выбери «Матрица».";return end
@@ -657,8 +657,13 @@ local function updateCamera()
     cam.FieldOfViewMode=Enum.FieldOfViewMode.Vertical
     local ok=pcall(function()
         local base=cam.CFrame
-        local distortion=CFrame.new(0,0,0,ratio,0,0,0,1,0,0,0,1)
-        cam.CFrame=base*distortion;saved.base=base;saved.matrix=cam.CFrame
+        local scaleX=1/ratio
+        local distortion=CFrame.new(0,0,0,scaleX,0,0,0,1,0,0,0,1)
+        cam.CFrame=base*distortion
+        if math.abs(cam.CFrame.RightVector.Magnitude-scaleX)>.01 then
+            cam.CFrame=base;error("Camera matrix not retained")
+        end
+        saved.base=base;saved.matrix=cam.CFrame
     end)
     state.cameraAdapter=ok and "Matrix"or "Unsupported"
     if not ok then restoreCamera("stretch");status.Text="Растяг недоступен в этом клиенте."end
@@ -667,7 +672,7 @@ state.updateCamera=updateCamera
 RunService:BindToRenderStep("VDHelperCameraPrepare",Enum.RenderPriority.Camera.Value-1,function()
     for cam,saved in pairs(cameraOriginals)do if saved.matrix then pcall(function()clearMatrix(cam,saved)end)end end
 end)
-RunService:BindToRenderStep("VDHelperCamera02",Enum.RenderPriority.Last.Value-1,updateCamera)
+RunService:BindToRenderStep("VDHelperCamera02",Enum.RenderPriority.Last.Value+1,updateCamera)
 
 local numericControls, textControls = {}, {}
 local activeSlider
@@ -1023,19 +1028,6 @@ crossGui.ResetOnSpawn = false
 crossGui.IgnoreGuiInset = true
 crossGui.ScreenInsets = Enum.ScreenInsets.None
 mountOverlay(crossGui, 1999999999)
-local cross = Instance.new("Frame")
-cross.Name = "Crosshair"
-cross.BackgroundTransparency = 1
-cross.Size = UDim2.fromOffset(1, 1)
-cross.Position = UDim2.fromScale(0.5, 0.5)
-cross.Visible = false
-cross.Parent = crossGui
-local crossH, crossV = Instance.new("Frame"), Instance.new("Frame")
-for _, part in ipairs({crossH, crossV}) do
-    part.AnchorPoint = Vector2.new(0.5, 0.5)
-    part.BorderSizePixel = 0
-    part.Parent = cross
-end
 local meters = overlay("Performance", 180, 30, UDim2.new(0.5, 0, 0, 8), Vector2.new(0.5, 0))
 local meterText = overlayLabel(meters, "FPS: — | Ping: —", 3, 24)
 local function paintToggle(field)
@@ -1053,10 +1045,7 @@ refreshParryButtons = function()
         or Color3.fromRGB(45, 53, 71)
 end
 applyExtras = function()
-    cross.Visible, meters.Visible = state.crosshair, state.stats
-    crossH.Size = UDim2.fromOffset(state.crossSize * 2 + 1, 2)
-    crossV.Size = UDim2.fromOffset(2, state.crossSize * 2 + 1)
-    crossH.BackgroundColor3, crossV.BackgroundColor3 = state.crossColor, state.crossColor
+    meters.Visible = state.stats
     panel.BackgroundTransparency = state.menuAlpha
     refreshParryButtons()
     fit()
@@ -1077,11 +1066,6 @@ connect(RunService.RenderStepped, function(dt)
 end)
 
 label("ПРИЦЕЛ И ИНТЕРФЕЙС", 920, 24)
-toggle("crosshair", "Прицел", 950)
-label("Размер прицела: 2–40 пикселей", 992, 24)
-numberInput(1020, 12, 2, 40, function(v) state.crossSize = v; applyExtras() end)
-local colorButton
-colorButton=button("Цвет прицела",1062,function()if state.openColor then state.openColor("crosshair",colorButton)end end)
 toggle("stats", "FPS / Ping", 1104)
 label("Right Shift / VD — скрыть или показать меню.\nX скрывает меню. Выгрузка скрипта — в config.", 1286, 42)
 
@@ -1106,27 +1090,40 @@ local seenTracks = setmetatable({}, {__mode = "k"})
 local watched = {}
 local lastParry, parryEpoch = -math.huge, 0
 local parryEvents={}
-local nativeParryClient,nativeParryTool
+local nativeParryClient,nativeParryTool,nativeActionContext,nativeActions
 local nativeScanAt,nativeScanning=0,false
 local function findNativeParry()
     local char=player.Character
     local tool=char and char:FindFirstChild("Parrying Dagger")
-    if nativeParryClient and nativeParryTool==tool and tool and tool.Parent==char then return end
-    nativeParryClient,nativeParryTool=nil,nil
+    if nativeActionContext and(not char or nativeActionContext.character~=char
+        or nativeActionContext.script~=char:FindFirstChild("CheckInterractable"))then nativeActionContext,nativeActions=nil,nil end
+    if nativeParryClient and nativeParryTool==tool and tool and tool.Parent==char and nativeActionContext then return end
+    if nativeParryTool~=tool then nativeParryClient,nativeParryTool,nativeActionContext,nativeActions=nil,nil,nil,nil end
     if not tool or type(getgc)~="function"or nativeScanning or os.clock()<nativeScanAt then return end
     nativeScanAt=os.clock()+3;nativeScanning=true
     task.spawn(function()
         local ok,module=pcall(function()
             return require(game:GetService("ReplicatedStorage").Modules.Items.ParryingDagger.ParryClient)
         end)
+        local actionsOk,actions=pcall(function()
+            return require(game:GetService("ReplicatedStorage").Modules.Survivors.SurvivorActions)
+        end)
+        local actionScript=char:FindFirstChild("CheckInterractable")
         local found,objects=pcall(getgc,true)
         if ok and found and type(objects)=="table"then
             for _,candidate in ipairs(objects)do
-                if type(candidate)=="table"and rawget(candidate,"tool")==tool and getmetatable(candidate)==module then
-                    if state.alive and state.parry and player.Character==char and tool.Parent==char then
-                        nativeParryClient,nativeParryTool=candidate,tool
+                if type(candidate)=="table"then
+                    if rawget(candidate,"tool")==tool and getmetatable(candidate)==module then
+                        if state.alive and state.parry and player.Character==char and tool.Parent==char then
+                            nativeParryClient,nativeParryTool=candidate,tool
+                        end
                     end
-                    break
+                    if actionsOk and actionScript and rawget(candidate,"character")==char
+                        and rawget(candidate,"script")==actionScript and type(rawget(candidate,"state"))=="table"
+                        and type(rawget(candidate,"prompts"))=="table"and type(rawget(candidate,"startCooldown"))=="function"then
+                        if state.alive and state.parry and player.Character==char then nativeActionContext,nativeActions=candidate,actions end
+                    end
+                    if nativeParryClient and nativeActionContext then break end
                 end
             end
         end
@@ -1208,6 +1205,19 @@ local function parryInput()
         end
     end
 end
+local function interruptForParry()
+    if state.selfHealing and state.stopSelfHeal then state.stopSelfHeal()end
+    local ctx=nativeActionContext
+    if not ctx or not nativeActions or ctx.character~=player.Character or not ctx.script then return end
+    if ctx.script:GetAttribute("isHealing")==true and type(nativeActions.stopHeal)=="function"then
+        local ok,err=pcall(nativeActions.stopHeal,ctx)
+        parryRecord("interrupt heal",nil,ok and "requested"or tostring(err))
+    end
+    if ctx.script:GetAttribute("isRepairing")==true and type(nativeActions.stopRepair)=="function"then
+        local ok,err=pcall(nativeActions.stopRepair,ctx)
+        parryRecord("interrupt repair",nil,ok and "requested"or tostring(err))
+    end
+end
 local function handleAttack(who,track,observed)
     if not state.parry or state.isDowned() or seenTracks[track]then return end
     local eligible,reason=canParry(who,track,observed)
@@ -1217,11 +1227,33 @@ local function handleAttack(who,track,observed)
     local name=anim and tostring(anim.Name or ""):lower():gsub("[^a-z0-9]","")or ""
     if not(id and attackIds[id])and name~="basicattack"and name~="m1attack"and name~="m1"and name~="swing"then if observed then parryRecord("skipped",track,"unknown animation")end;return end
     if os.clock()-lastParry<state.parryCooldown then if observed then parryRecord("skipped",track,"cooldown")end;return end
+    if nativeParryClient and(nativeParryClient.isParryOnCooldown or nativeParryClient.isParryResolving)then
+        if observed then parryRecord("skipped",track,"dagger cooldown")end;return
+    end
     seenTracks[track]=true
-    local ok,err=pcall(parryInput) -- Run in the animation callback, without task.delay(0).
-    if ok then lastParry=os.clock()end
-    parryRecord(ok and "input sent"or "input error",track,ok and(err or "virtual input")or tostring(err))
-    status.Text=ok and "Парирование: ввод отправлен."or "Парирование: ввод недоступен."
+    interruptForParry()
+    local ok,err=pcall(parryInput)
+    if ok then
+        lastParry=os.clock();parryRecord("input sent",track,err or "virtual input")
+        status.Text="Парирование: ввод отправлен."
+    elseif tostring(err):find("dagger not ready",1,true)then
+        local epoch=parryEpoch;local deadline=os.clock()+.3;local char=player.Character
+        task.spawn(function()
+            while state.alive and state.parry and parryEpoch==epoch and player.Character==char and os.clock()<deadline do
+                RunService.Heartbeat:Wait()
+                if not track.IsPlaying or not canParry(who,track,false)then break end
+                if os.clock()-lastParry>=state.parryCooldown then
+                    local sent,reason=pcall(parryInput)
+                    if sent then
+                        lastParry=os.clock();parryRecord("input sent",track,reason or "virtual input");return
+                    end
+                end
+            end
+            parryRecord("input error",track,"dagger remained busy")
+        end)
+    else
+        parryRecord("input error",track,tostring(err));status.Text="Парирование: ввод недоступен."
+    end
 end
 local function clearParryConnections()
     for _, conn in pairs(parryConnections) do conn:Disconnect() end
@@ -1283,7 +1315,7 @@ state.parryDiagnostics=function()
         if node:IsA("GuiButton")then controls[#controls+1]={name=node.Name,visible=visibleUI(node),class=node.ClassName}end
     end end
     return {enabled=state.parry,watchedKillers=n,radius=state.parryRadius,faceSensitivity=state.faceSensitivity,
-        input=player:GetAttribute("kb_item")or "MouseButton2",nativeHandler=nativeParryClient~=nil,
+        input=player:GetAttribute("kb_item")or "MouseButton2",nativeHandler=nativeParryClient~=nil,actionHandler=nativeActionContext~=nil,
         touch=Input.TouchEnabled,keyboard=Input.KeyboardEnabled,controls=controls,events=parryEvents}
 end
 state.setParry = function(enabled)
@@ -1978,7 +2010,8 @@ local function validateConfig(text)
     if type(groups)~="table"then error("Неверные группы")end
     for id,closed in pairs(groups)do
         local legacyAudio={audioSources=true,misfireAudio=true,shotAudio=true,daggerAudio=true}
-        local key=legacyAudio[id]and "customAudio"or((id=="bearTrap"or id=="skillCalibration")and "skillchecks"or(id=="playerEsp"and "worldEsp"or id))
+        local key=legacyAudio[id]and "customAudio"or((id=="bearTrap"or id=="skillCalibration")and "skillchecks"
+            or(id=="playerEsp"and "worldEsp"or((id=="sprint"or id=="survivalTools")and "survivorProtection"or(id=="moonwalk"and "customAudio"or id))))
         if type(closed)~="boolean"then error("Неверная группа")end
         if key~="cosmetic"and key~="hudLayout"then
             if not state.groupIds or not state.groupIds[key]then error("Неверная группа")end
@@ -2036,7 +2069,6 @@ local function applyConfig(text)
     if state.parry and not virtualInput then state.parry=false;paintToggle("parry")end
     bindButton.Text="Бинд авто парирования: "..bindLabel(state.parryBind)
     presetButton.Text="Пресет: "..(state.aspect=="custom"and "свой"or state.aspect)
-    colorButton.Text="Цвет прицела: из конфига"
     if textControls[2350]then textControls[2350].sync(table.concat(listIds(breakAnimationIds),","))end
     unsupportedCamera=nil
     updateCamera();refreshESP();updateOverlays();applyExtras();refreshExtensions()
@@ -2700,7 +2732,6 @@ local function createMover(target,id,titleText,enabled,default)
 end
 createMover(meters,"performance","FPS / Ping",function()return state.stats end,{0.5,0.045})
 createMover(perkBox,"perks","Перки",function()return state.perks end,{0.16,0.16})
-createMover(cross,"crosshair","Прицел",function()return state.crosshair end,{0.5,0.5})
 createMover(state.hiddenCircle,"hiddenFov","FOV Hidden M2",function()return state.hiddenAim and state.showHiddenFov and isKiller(player)end,{0.5,0.5})
 createMover(floatingMenu,"menuButton","Меню",function()return true end,{0.035,0.5})
 createMover(mobileParry,"parryButton","Парирование",function()return Input.TouchEnabled end,{0.07,0.59})
@@ -2865,17 +2896,11 @@ for _,spec in ipairs(specs)do
     swatch.Position=UDim2.new(1,-30,0.5,-8);swatch.Size=UDim2.fromOffset(16,16);swatch.Parent=b
     controls[id]={box=b,swatch=swatch}
 end
-do
-    local swatch=Instance.new("Frame");swatch.Name="ColorPreview";swatch.BorderSizePixel=0;swatch.ZIndex=2
-    swatch.Position=UDim2.new(1,-30,0.5,-8);swatch.Size=UDim2.fromOffset(16,16);swatch.Parent=colorButton
-    controls.crosshair={box=colorButton,swatch=swatch}
-end
 state.refreshColorControls=function()
     for id,c in pairs(controls)do c.swatch.BackgroundColor3=colorFor(id)end
     if selected then h,saturation,value=colorFor(selected):ToHSV();redraw()end
 end
 state.applyEspColors=function()
-    crossH.BackgroundColor3=state.crossColor;crossV.BackgroundColor3=state.crossColor
     meterText.TextColor3=state.espColors.stats
     for _,item in ipairs(perkBox:GetDescendants())do if item:IsA("TextLabel")then item.TextColor3=state.espColors.perks end end
     for _,mark in pairs(highlights)do mark.FillColor=state.espColors.killerHighlight;mark.OutlineColor=state.espColors.killerHighlight end
@@ -2945,6 +2970,7 @@ local presets={
 }
 local presetOrder={"Ping","High","Low","Snap","SnapHigh","Bass","BassLow","Splash","SplashHigh"}
 local active,watches,rootConnections,lastEvent={},{},{},{}
+local daggerResultConnection,daggerResultRemote
 local recentSource,muted={},{}
 local audioEvents={}
 state.audioDiagnostics=function()
@@ -2990,6 +3016,14 @@ local function play(id,preview)
 end
 state.previewSound=play
 local function cleanName(value)return tostring(value or ""):lower():gsub("[^a-z]","")end
+local function audioAsset(sound)
+    local ok,value=pcall(function()return sound:IsA("Sound")and sound.SoundId or sound.AssetId end)
+    return ok and tostring(value)or ""
+end
+local function sourcePlaying(sound)
+    local ok,value=pcall(function()return sound.IsPlaying end)
+    return ok and value==true
+end
 local function ownSource(sound)
     local char=player.Character
     if char and sound:IsDescendantOf(char)then return true end
@@ -3000,7 +3034,7 @@ end
 local function identify(sound)
     if sound.Name=="VDHelperCustomAudio"or sound:IsDescendantOf(folder)then return nil end
     if state.soundOwnOnly and not ownSource(sound)then return nil end
-    local sourceId=tostring(sound.SoundId):match("%d+")
+    local sourceId=audioAsset(sound):match("%d+")
     for _,spec in ipairs(specs)do
         if state[spec.field]and sourceId and state.customSounds[spec.id].sources[sourceId]then return spec.id end
     end
@@ -3025,7 +3059,10 @@ local function muteOriginal(sound,id)
     if muted[sound]then return end
     local entry={volume=sound.Volume,id=id,connections={}};muted[sound]=entry
     entry.connections[1]=sound.Ended:Connect(function()restoreOriginal(sound)end)
-    entry.connections[2]=sound.Stopped:Connect(function()restoreOriginal(sound)end)
+    if sound:IsA("Sound")then entry.connections[2]=sound.Stopped:Connect(function()restoreOriginal(sound)end)
+    else pcall(function()entry.connections[2]=sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
+        if not sourcePlaying(sound)then restoreOriginal(sound)end
+    end)end)end
     sound.Volume=0
 end
 local function stopWatch(sound)
@@ -3033,32 +3070,38 @@ local function stopWatch(sound)
     if watches[sound]then watches[sound]:Disconnect();watches[sound]=nil end
 end
 local function watch(sound)
-    if not sound:IsA("Sound")or watches[sound]or sound.Name=="VDHelperCustomAudio"or sound:IsDescendantOf(folder)then return end
-    watches[sound]=sound.Played:Connect(function()
+    if not(sound:IsA("Sound")or sound:IsA("AudioPlayer"))or watches[sound]or sound.Name=="VDHelperCustomAudio"
+        or sound.Name=="SeterageEmoteSound"or sound:IsDescendantOf(folder)then return end
+    local function onPlayed()
         if not state.alive then return end
         local id=identify(sound)
-        if state.daggerSound then
+        if state.daggerSound or state.shotSound or state.misfireSound then
             local ok,path=pcall(function()return sound:GetFullName()end)
             audioEvents[#audioEvents+1]={kind="gameSound",name=sound.Name,path=ok and path or sound.Name,
-                asset=tostring(sound.SoundId),own=ownSource(sound),identified=id}
+                asset=audioAsset(sound),own=ownSource(sound),identified=id}
             if #audioEvents>30 then table.remove(audioEvents,1)end
         end
         if not id or os.clock()-(lastEvent[id]or -math.huge)<0.15 then return end
         lastEvent[id]=os.clock()
-        recentSource[id]=tostring(sound.SoundId):match("%d+")
+        recentSource[id]=audioAsset(sound):match("%d+")
         local ok,reason,clip=play(id)
         if ok then
             if clip.IsLoaded then muteOriginal(sound,id)
             elseif active[clip]then
                 active[clip].loaded=clip.Loaded:Connect(function()
-                    if state.alive and sound.IsPlaying then muteOriginal(sound,id)end
+                    if state.alive and sourcePlaying(sound)then muteOriginal(sound,id)end
                 end)
             end
         end
         audioInfo.Text=ok and("Событие: "..id)or tostring(reason)
-    end)
+    end
+    if sound:IsA("Sound")then watches[sound]=sound.Played:Connect(onPlayed)
+    else pcall(function()watches[sound]=sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
+        if sourcePlaying(sound)then onPlayed()end
+    end)end)end
 end
 local function clearWatches()
+    if daggerResultConnection then daggerResultConnection:Disconnect();daggerResultConnection=nil;daggerResultRemote=nil end
     for sound in pairs(watches)do stopWatch(sound)end
     for _,connection in ipairs(rootConnections)do connection:Disconnect()end
     rootConnections={}
@@ -3074,6 +3117,26 @@ local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<0.3 then return end;elapsed=0
     if not enabled()then if #rootConnections>0 then clearWatches()end;return end
+    local remotes=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+    local items=remotes and remotes:FindFirstChild("Items")
+    local dagger=items and items:FindFirstChild("Parrying Dagger")
+    local result=dagger and dagger:FindFirstChild("parryResult")
+    if result~=daggerResultRemote then
+        if daggerResultConnection then daggerResultConnection:Disconnect();daggerResultConnection=nil end
+        daggerResultRemote=result
+        if result and result:IsA("RemoteEvent")then
+            daggerResultConnection=result.OnClientEvent:Connect(function(success,cooldown,permanent,reset,character)
+                if not state.alive or not state.daggerSound or character~=player.Character then return end
+                audioEvents[#audioEvents+1]={kind="daggerResult",success=success==true,reset=reset==true}
+                if #audioEvents>30 then table.remove(audioEvents,1)end
+                if reset==true or success~=true then return end
+                if os.clock()-(lastEvent.dagger or -math.huge)<.15 then return end
+                lastEvent.dagger=os.clock()
+                local ok,reason=play("dagger")
+                audioInfo.Text=ok and "Стан подтверждён: звук даггера."or tostring(reason)
+            end)
+        end
+    end
     if #rootConnections>0 then return end
     for _,root in ipairs({Workspace,SoundService,player.PlayerGui})do
         for _,item in ipairs(root:GetDescendants())do watch(item)end
@@ -3091,26 +3154,17 @@ for _,spec in ipairs(specs)do
         state.customSounds[id].preset=presetOrder[index%#presetOrder+1];state.refreshAudioUI()
     end)
     presetButton.Name="SoundPreset_"..id
-    label("Громкость",y+84+14,24)
     local volumeY=y+110
-    numberInput(volumeY,1,0,2,function(v)state.customSounds[id].volume=v end)
+    local volumeRow=numberInput(volumeY,1,0,2,function(v)state.customSounds[id].volume=v end)
+    local volumeLabel=Instance.new("TextLabel");volumeLabel.Name="VolumeLabel"
+    volumeLabel.BackgroundTransparency=1;volumeLabel.Size=UDim2.new(0.6,0,0,18)
+    volumeLabel.Text="Громкость";volumeLabel.TextXAlignment=Enum.TextXAlignment.Left
+    volumeLabel.Font=Enum.Font.Gotham;volumeLabel.TextSize=12;volumeLabel.Parent=volumeRow
     local preview=button("Прослушать",y+154,function()
         local ok,reason=play(id,true);if not ok then status.Text=reason end
     end)
     preview.Name="SoundPreview_"..id
-    label("ID исходного звука события — необязательно",y+196,24)
-    local sourceY=y+224
-    local source=textSetting(sourceY,"",function(value)
-        local ids={}
-        if not value:match("^%s*$")then for token in value:gmatch("[^,]+")do
-            local number=token:match("^%s*(%d+)%s*$")
-            if not number or #number>20 then status.Text="ID источников через запятую.";return end
-            ids[number]=true
-        end end
-        state.customSounds[id].sources=ids;return value
-    end)
-    source.Name="SoundSource_"..id
-    controls[id]={source=sourceY,volume=volumeY,preset=presetButton}
+    controls[id]={volume=volumeY,preset=presetButton}
 end
 local ownButton=button("Только мои события",8904,function()
     state.soundOwnOnly=not state.soundOwnOnly;if state.applyStyle then state.applyStyle()end
@@ -3119,8 +3173,6 @@ state.uiOptions.soundOwnOnly={button=ownButton,text="Только мои соб�
 state.refreshAudioUI=function()
     for id,c in pairs(controls)do
         c.preset.Text="Встроенный: "..(presets[state.customSounds[id].preset or "Ping"]or presets.Ping).name
-        local ids={};for value in pairs(state.customSounds[id].sources)do ids[#ids+1]=value end;table.sort(ids)
-        textControls[c.source].sync(table.concat(ids,","))
         numericControls[c.volume].set(state.customSounds[id].volume)
     end
 end
@@ -4313,6 +4365,7 @@ local function stopHealing()
         session.remote:FireServer(session.root,false,session.requestId,session.char)
     end)end
 end
+state.stopSelfHeal=stopHealing
 state.resetSurvival=function()releaseSlow(false);stopHealing()end
 local function injured(char,hum)
     return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
@@ -4742,17 +4795,16 @@ local groupsByPage={}
 state.groupIds={}
 local function groupFor(section,y)
     if section=="survival"then
-        if y>=3800 and y<=3900 then return "survivalTools","Скорость и лечение",7 end
-        if y>=3600 and y<=3799 then return "sprint","Спринт",6 end
-        if y>=9000 then return "moonwalk","Moonwalk",6 end
+        if y>=3600 and y<=3900 then return "survivorProtection","Cheat Mode",5 end
+        if y>=9000 then return "customAudio","Кастомные звуки",7 end
         if y>=8000 then return "customAudio","Кастомные звуки",7 end
         if y>=7400 then return "skillchecks","Скиллчеки",1 end
         if y>=7000 or y<200 then return "skillchecks","Скиллчеки",1 end
-        if y>=2410 then return "survivorProtection","Абилки",5 end
+        if y>=2410 then return "survivorProtection","Cheat Mode",5 end
         return "dagger","Даггер",4
     elseif section=="killer"then
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
-        if y>=2534 then return "killerProtection","Абилки",2 end
+        if y>=2534 then return "killerProtection","Cheat Mode",2 end
         return "palletBreak","Палеты",1
     elseif section=="esp"then
         if y>=4550 and y<=4700 then return "worldStyle","Мир и раунд",5 end
