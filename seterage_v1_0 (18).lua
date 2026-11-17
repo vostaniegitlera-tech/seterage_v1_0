@@ -3770,7 +3770,7 @@ ring.Size=UDim2.fromScale(1,1);ring.Position=UDim2.fromOffset(0,0);ring.Visible=
 local segments={};local segmentCount=144
 for i=1,segmentCount do
     local segment=Instance.new("Frame");segment.Name="ParryRadiusSegment";segment.BorderSizePixel=0
-    segment.AnchorPoint=Vector2.new(0,0.5);segment.Visible=false;segment.BackgroundColor3=Color3.fromRGB(15,10,25)
+    segment.AnchorPoint=Vector2.new(0.5,0.5);segment.Visible=false;segment.BackgroundColor3=Color3.fromRGB(15,10,25)
     segment.Parent=ring
     local edgeRound=Instance.new("UICorner");edgeRound.CornerRadius=UDim.new(0,2);edgeRound.Parent=segment
     local core=Instance.new("Frame");core.Name="Core";core.BorderSizePixel=0
@@ -3802,7 +3802,7 @@ connect(RunService.RenderStepped,function()
                 local length=math.sqrt(dx*dx+dy*dy)
                 part.Visible=previous.Z>0 and point.Z>0 and length>0 and length<math.max(cam.ViewportSize.X,cam.ViewportSize.Y)*2
                 if part.Visible then
-                    part.Position=UDim2.fromOffset(previous.X,previous.Y);part.Size=UDim2.fromOffset(length+1,4)
+                    part.Position=UDim2.fromOffset((previous.X+point.X)/2,(previous.Y+point.Y)/2);part.Size=UDim2.fromOffset(length+1,4)
                     part.Rotation=math.deg(math.atan2(dy,dx));core.BackgroundColor3=state.espColors.parryFov
                 end
             end
