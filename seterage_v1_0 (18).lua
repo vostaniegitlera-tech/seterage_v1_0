@@ -2671,17 +2671,17 @@ local function render(button,text,enabled)
         label.TextXAlignment=Enum.TextXAlignment.Left;label.TextWrapped=true;label.Font=Enum.Font.Gotham;label.TextSize=12
         label.TextColor3=Color3.fromRGB(225,228,240);label.Parent=button
         local bar=Instance.new("Frame");bar.Name="SwitchTrack";bar.BorderSizePixel=0
-        bar.AnchorPoint=Vector2.new(1,0.5);bar.Position=UDim2.new(1,-10,0.5,0);bar.Size=UDim2.fromOffset(32,14);bar.Parent=button
+        bar.AnchorPoint=Vector2.new(1,0.5);bar.Position=UDim2.new(1,-12,0.5,0);bar.Size=UDim2.fromOffset(36,20);bar.Parent=button
         local c=Instance.new("UICorner");c.CornerRadius=UDim.new(1,0);c.Parent=bar
         local thumb=Instance.new("Frame");thumb.Name="SwitchThumb";thumb.BorderSizePixel=0
-        thumb.Size=UDim2.fromOffset(10,10);thumb.AnchorPoint=Vector2.new(0,0.5);thumb.Parent=bar
+        thumb.Size=UDim2.fromOffset(14,14);thumb.AnchorPoint=Vector2.new(0,0.5);thumb.Parent=bar
         local tc=Instance.new("UICorner");tc.CornerRadius=UDim.new(1,0);tc.Parent=thumb
         parts={bar=bar,thumb=thumb,label=label};switches[button]=parts
     end
     button.Text=text;button.TextTransparency=1;parts.label.Text=text;button.TextXAlignment=Enum.TextXAlignment.Left
-    parts.bar.BackgroundColor3=enabled and Color3.fromRGB(139,92,246)or Color3.fromRGB(0,0,0)
-    parts.thumb.BackgroundColor3=enabled and Color3.fromRGB(235,225,255)or Color3.fromRGB(100,100,115)
-    parts.thumb.Position=UDim2.new(0,enabled and 20 or 2,0.5,0)
+    parts.bar.BackgroundColor3=enabled and state.uiAccentColor or Color3.fromRGB(55,58,72)
+    parts.thumb.BackgroundColor3=enabled and Color3.fromRGB(255,255,255)or Color3.fromRGB(164,168,184)
+    parts.thumb.Position=UDim2.new(0,enabled and 19 or 3,0.5,0)
 end
 state.renderSwitches=function()
     for field,entry in pairs(toggleButtons)do render(entry.button,entry.text,state[field])end
@@ -2902,25 +2902,32 @@ end
 -- Header brand and movable launcher. The header mark moves the menu itself.
 do
 floatingMenu.Name="SeterageLauncher"
-floatingMenu.Size=UDim2.fromOffset(44,44)
-floatingMenu.Text="SR"
+floatingMenu.Size=UDim2.fromOffset(48,48)
+floatingMenu.Text="S"
+local launcherOutline=Instance.new("UIStroke");launcherOutline.Thickness=1.5;launcherOutline.Transparency=.2;launcherOutline.Parent=floatingMenu
+local launcherGradient=Instance.new("UIGradient");launcherGradient.Rotation=45;launcherGradient.Parent=floatingMenu
 local badge=Instance.new("Frame");badge.Name="SeterageBrand"
 badge.Position=UDim2.fromOffset(14,8);badge.Size=UDim2.fromOffset(28,28)
 badge.BorderSizePixel=0;badge.Active=true;badge.Parent=panel
 local corner=Instance.new("UICorner");corner.CornerRadius=UDim.new(0,8);corner.Parent=badge
 local mark=Instance.new("TextLabel");mark.Name="BrandGlyph";mark.BackgroundTransparency=1
-mark.Size=UDim2.fromScale(1,1);mark.Text="SR";mark.Font=Enum.Font.GothamBold;mark.TextSize=13;mark.Parent=badge
+mark.Size=UDim2.fromScale(1,1);mark.Text="S";mark.Font=Enum.Font.GothamBlack;mark.TextSize=19;mark.Parent=badge
 local outline=Instance.new("UIStroke");outline.Thickness=1;outline.Transparency=0.4;outline.Color=Color3.fromRGB(190,160,255);outline.Parent=badge
+local badgeGradient=Instance.new("UIGradient");badgeGradient.Rotation=45;badgeGradient.Parent=badge
 connect(badge.InputBegan,function(input)
     if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
         dragInput,dragStart,startPosition=input,input.Position,panel.Position
     end
 end)
 state.updateLogo=function()
-    badge.BackgroundColor3=Color3.fromRGB(139,92,246)
-    mark.TextColor3=Color3.fromRGB(245,240,255);mark.Font=Enum.Font.GothamBold
-    floatingMenu.BackgroundColor3=Color3.fromRGB(110,65,205)
-    floatingMenu.TextColor3=Color3.fromRGB(245,240,255);floatingMenu.Font=Enum.Font.GothamBold;floatingMenu.TextSize=18
+    local accent=state.uiAccentColor
+    badge.BackgroundColor3=accent
+    badgeGradient.Color=ColorSequence.new(Color3.new(1,1,1),Color3.fromRGB(135,125,185))
+    mark.TextColor3=Color3.fromRGB(255,255,255);mark.Font=Enum.Font.GothamBlack
+    floatingMenu.BackgroundColor3=accent
+    launcherGradient.Color=ColorSequence.new(Color3.new(1,1,1),Color3.fromRGB(125,115,175))
+    launcherOutline.Color=accent:Lerp(Color3.new(1,1,1),.45)
+    floatingMenu.TextColor3=Color3.fromRGB(255,255,255);floatingMenu.Font=Enum.Font.GothamBlack;floatingMenu.TextSize=23
     floatingMenu.Visible=not state.menuVisible
     title.Position=UDim2.fromOffset(54,8);title.Size=UDim2.new(1,-150,0,32)
     if state.applyHudPositions then state.applyHudPositions()end
@@ -4240,6 +4247,8 @@ status.Size=UDim2.new(1,-state.sideWidth-46,0,32)
 status.Position=UDim2.new(0,state.sideWidth+30,1,-38)
 local titleText=title
 local outline=Instance.new("UIStroke");outline.Thickness=1;outline.Transparency=0.45;outline.Color=Color3.fromRGB(70,64,90);outline.Parent=panel
+local sidebarCorner=Instance.new("UICorner");sidebarCorner.CornerRadius=UDim.new(0,10);sidebarCorner.Parent=tabBar
+local sidebarOutline=Instance.new("UIStroke");sidebarOutline.Thickness=1;sidebarOutline.Transparency=.75;sidebarOutline.Parent=tabBar
 local current="survival"
 local baseSizes=setmetatable({},{__mode="k"})
 local rowSizes=setmetatable({},{__mode="k"})
@@ -4257,8 +4266,8 @@ for _,name in ipairs({"Roboto","Oswald","FredokaOne","Nunito","TitilliumWeb","Co
     if ok and font then fontPairs[name]={font,font}end
 end
 local themes={
-    Graphite={panel=Color3.fromRGB(17,18,25),button=Color3.fromRGB(25,26,35),text=Color3.fromRGB(225,228,240),muted=Color3.fromRGB(135,141,158)},
-    Midnight={panel=Color3.fromRGB(13,19,34),button=Color3.fromRGB(24,37,59),text=Color3.fromRGB(225,238,255),muted=Color3.fromRGB(150,175,208)},
+    Graphite={panel=Color3.fromRGB(15,16,23),button=Color3.fromRGB(27,29,40),text=Color3.fromRGB(236,237,245),muted=Color3.fromRGB(150,153,172)},
+    Midnight={panel=Color3.fromRGB(12,17,29),button=Color3.fromRGB(24,33,50),text=Color3.fromRGB(232,239,251),muted=Color3.fromRGB(155,175,201)},
     Light={panel=Color3.fromRGB(236,240,246),button=Color3.fromRGB(215,223,234),text=Color3.fromRGB(28,38,54),muted=Color3.fromRGB(75,92,115)},
 }
 local groupsByPage={}
@@ -4382,6 +4391,8 @@ state.applyStyle=function()
     if state.refreshUiOptions then state.refreshUiOptions()end
     panel.BackgroundColor3=palette.panel
     tabBar.BackgroundColor3=palette.button
+    outline.Color=state.uiAccentColor:Lerp(palette.panel,.55)
+    sidebarOutline.Color=state.uiAccentColor:Lerp(palette.button,.5)
     for _,item in ipairs(panel:GetDescendants())do
         if item:IsA("TextLabel")or item:IsA("TextButton")or item:IsA("TextBox")then
             local base=baseSizes[item]
@@ -4403,6 +4414,8 @@ state.applyStyle=function()
     if state.renderSwitches then state.renderSwitches()end
     for _,name in ipairs(sections)do
         tabButtons[name].BackgroundColor3=name==current and state.uiAccentColor or palette.button
+        tabButtons[name].TextColor3=name==current and Color3.new(1,1,1)or palette.muted
+        tabButtons[name].BackgroundTransparency=name==current and .12 or .35
     end
 
     if state.updateLogo then state.updateLogo()end
@@ -4422,12 +4435,13 @@ local function selectSection(name)
     state.applyStyle()
 end
 state.selectSection=selectSection
+local tabLabels={survival="Выживший",killer="Убийца",esp="ESP",config="Настройки"}
 for i,name in ipairs(sections)do
     local tab=Instance.new("TextButton")
     tab.Name="Tab_"..name
     tab.Position=UDim2.fromOffset(6,8+(i-1)*44)
     tab.Size=UDim2.new(1,-12,0,38)
-    tab.Font=Enum.Font.GothamBold;tab.TextSize=12;tab.Text=name
+    tab.Font=Enum.Font.GothamBold;tab.TextSize=12;tab.Text=tabLabels[name]
     tab.TextColor3=Color3.fromRGB(240,245,255);tab.Parent=tabBar
     local corner=Instance.new("UICorner");corner.Parent=tab
     tabButtons[name]=tab
