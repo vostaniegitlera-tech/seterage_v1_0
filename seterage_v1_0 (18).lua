@@ -3506,8 +3506,8 @@ local function vault(track)
     -- Only the exact walking-vault animation observed in the user's report.
     if id~="126081405469607"or not track.IsPlaying or tracks[track]then return end
     local speed=track.Speed
-    if type(speed)~="number"or speed<=0 or speed>=vaultTargetSpeed then return end
-    local ok=pcall(function()track:AdjustSpeed(vaultTargetSpeed)end)
+    if type(speed)~="number"or speed<=0 then return end
+    local ok=pcall(function()if speed<vaultTargetSpeed then track:AdjustSpeed(vaultTargetSpeed)end end)
     state.vaultRuntime.lastAnimation={asset=id,originalSpeed=speed,requestedSpeed=vaultTargetSpeed,targetDuration=vaultTargetDuration,accepted=ok}
     if ok then
         tracks[track]=speed
