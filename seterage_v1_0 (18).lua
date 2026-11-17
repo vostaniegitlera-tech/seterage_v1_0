@@ -1062,8 +1062,6 @@ local attackIds = {
     ["130593238885843"] = true, -- snake attack
     ["138720291317243"] = true, -- tony attack
 }
-local baseAttackIds = {}
-for id in pairs(attackIds) do baseAttackIds[id] = true end
 local seenTracks = setmetatable({}, {__mode = "k"})
 local watched = {}
 local lastParry, parryEpoch = -math.huge, 0
@@ -1233,40 +1231,9 @@ local function textSetting(y, initial, accept)
     end)
     return box
 end
-label("Кнопка парирования: MouseButton2 или клавиша", 1642, 24)
-textSetting(1670, "MouseButton2", function(value)
-    value = value:match("^%s*(.-)%s*$")
-    if value == "MouseButton2" then state.parryInput = value; return value end
-    local ok, code = pcall(function() return Enum.KeyCode[value] end)
-    if ok and code and code ~= Enum.KeyCode.Unknown and code ~= state.parryBind
-        and code ~= state.hiddenBind and code ~= Enum.KeyCode.Space
-        and code ~= Enum.KeyCode.Backspace and code ~= Enum.KeyCode.Escape
-        and code ~= Enum.KeyCode.LeftShift and code~=state.emoteBind and code ~= state.menuBind and code ~= state.moonForwardBind and code ~= state.moonBackwardBind then
-        state.parryInput = code.Name; return code.Name
-    end
-    status.Text = "Пример: MouseButton2, Q, E, F. Не используй бинд переключения."
-end)
 label("Пауза между попытками: 0.2–5 секунд", 1782, 24)
 numberInput(1810, 0.2, 0.2, 5, function(v) state.parryCooldown = v end)
 label("Только известные анимации атак; не все убийцы.\nНужен экипированный даггер. Проверь ввод в игре.", 1852, 44)
-label("Дополнительные ID анимаций атак, через запятую", 1904, 24)
-textSetting(1932, "", function(value)
-    local additions = {}
-    if value:match("^%s*$") then
-        attackIds = {}
-        for id in pairs(baseAttackIds) do attackIds[id] = true end
-        return ""
-    end
-    for token in value:gmatch("[^,]+") do
-        local id = token:match("^%s*(%d+)%s*$")
-        if not id then status.Text = "Нужны числовые ID через запятую."; return end
-        additions[id] = true
-    end
-    attackIds = {}
-    for id in pairs(baseAttackIds) do attackIds[id] = true end
-    for id in pairs(additions) do attackIds[id] = true end
-    return value
-end)
 local function disableAll()
     if state.resetUtilities then state.resetUtilities()end
     if state.resetSurvival then state.resetSurvival()end
@@ -1906,8 +1873,6 @@ local function applyConfig(text)
     bindButton.Text="Бинд авто парирования: "..bindLabel(state.parryBind)
     presetButton.Text="Пресет: "..(state.aspect=="custom"and "свой"or state.aspect)
     colorButton.Text="Цвет прицела: из конфига"
-    if textControls[1670]then textControls[1670].sync(state.parryInput)end
-    if textControls[1932]then textControls[1932].sync(table.concat(listIds(attackIds),","))end
     if textControls[2350]then textControls[2350].sync(table.concat(listIds(breakAnimationIds),","))end
     unsupportedCamera=nil
     updateCamera();refreshESP();updateOverlays();applyExtras();refreshExtensions()
@@ -4232,9 +4197,9 @@ local hints={
 local shortLabels={
     [230]="КАМЕРА",[302]="FOV: 40–120",[456]="Сила растяжения: 0.5–2",[616]="Радиус радара, студы",
     [920]="ПРИЦЕЛ И МЕНЮ",[992]="Размер прицела",[1146]="Масштаб меню: 0.6–1.5",
-    [1340]="ДАГГЕР",[1412]="Радиус: 2–25 студов",[1482]="Face Sensitivity: −1…1",
-    [1642]="Ввод: MouseButton2 или клавиша",[1712]="Задержка: 0–0.5 с",[1782]="Интервал: 0.2–5 с",
-    [1904]="Доп. ID атак, через запятую",[2090]="ПАЛЕТЫ",[2162]="Множитель анимации: 1–10",
+    [1340]="ДАГГЕР",[1412]="Расстояние до убийцы: 2–25 студов",[1482]="Направление взгляда убийцы: −1…1",
+    [1782]="Пауза между попытками: 0.2–5 с",
+    [2090]="ПАЛЕТЫ",[2162]="Множитель анимации: 1–10",
     [2312]="Доп. ID разрушения палет",[2410]="АБИЛКИ",[2726]="HIDDEN M2",[2798]="FOV: 35–400 пикселей",
     [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
 }
