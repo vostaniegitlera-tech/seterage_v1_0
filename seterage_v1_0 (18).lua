@@ -4022,8 +4022,13 @@ connect(RunService.Heartbeat,function(dt)
     local c=capture;local root=c.root;local char=player.Character
     if not root.Parent or not char or os.clock()-c.time>10 or #c.row.samples>=80 then capture=nil;return end
     local delta=root.Position-c.start
+    local hum=char:FindFirstChildOfClass("Humanoid")
+    local velocity=root.AssemblyLinearVelocity
     c.row.samples[#c.row.samples+1]={t=os.clock()-c.time,x=delta.X,y=delta.Y,z=delta.Z,
         anchored=root.Anchored,playing=c.track.IsPlaying,timePosition=c.track.TimePosition,
+        velocity={velocity.X,velocity.Y,velocity.Z},walkSpeed=hum and hum.WalkSpeed,
+        moveDirection=hum and {hum.MoveDirection.X,hum.MoveDirection.Y,hum.MoveDirection.Z},
+        humanoidState=hum and tostring(hum:GetState()),platformStand=hum and hum.PlatformStand,
         action=char:GetAttribute("ActionState"),vaultspeed=char:GetAttribute("vaultspeed")}
     if not c.track.IsPlaying then
         if not c.stoppedAt then c.stoppedAt=os.clock();c.row.animationStoppedAt=c.stoppedAt-c.time end
