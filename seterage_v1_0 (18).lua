@@ -4414,6 +4414,13 @@ do
 local slowHum,slowOriginal,slowApplied
 local speedHum,normalSpeed,sprintSpeed
 local healSession
+local palletDropUntil=0
+local dropSignal=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+dropSignal=dropSignal and dropSignal:FindFirstChild("Pallet")
+dropSignal=dropSignal and dropSignal:FindFirstChild("Dropbindable")
+if dropSignal and dropSignal:IsA("BindableEvent")then
+    connect(dropSignal.Event,function()palletDropUntil=os.clock()+.5 end)
+end
 local healInfo=label("Самохил: нажми кнопку, когда ранен и не нокнут.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
 local function boolFlag(object,name)
     if not object then return false end
@@ -4454,7 +4461,7 @@ local function injured(char,hum)
     return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
 end
 toggle("noSlowdown","No slowdown",3800)
-label("Восстанавливает обычную скорость при распознанном замедлении.",3840,28)
+label("Скорость при замедлении и сбросе палеты · тест.",3840,28)
 local function toggleSelfHeal()
     if healSession then stopHealing();healInfo.Text="Самохил остановлен.";return end
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
@@ -4515,14 +4522,15 @@ connect(RunService.Heartbeat,function(dt)
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local active=state.alive and hum and hum.Health>0 and not state.isDowned(char)
     if hum~=speedHum then releaseSlow(false);speedHum=hum;normalSpeed,sprintSpeed=nil,nil;stopHealing()end
-    local hasSlow=active and slowed(char,hum)
+    local palletDrop=active and os.clock()<palletDropUntil
+    local hasSlow=active and (slowed(char,hum) or palletDrop)
     local isBusy=active and busy(char,hum)
     if active and not hasSlow and not isBusy and hum.WalkSpeed>=4 then
         if sprinting(char,hum)then sprintSpeed=hum.WalkSpeed else normalSpeed=hum.WalkSpeed end
     end
-    if active and state.noSlowdown and hasSlow and not isBusy and hum.WalkSpeed>0 then
+    if active and state.noSlowdown and hasSlow and not isBusy and (hum.WalkSpeed>0 or palletDrop) then
         local baseline=(sprinting(char,hum)and sprintSpeed or normalSpeed)
-            or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")
+            or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")or (palletDrop and char:GetAttribute("Speed"))
         if type(baseline)=="number"and baseline>0 and baseline<=40 then
             if slowHum~=hum then releaseSlow(false);slowHum=hum;slowOriginal=hum.WalkSpeed end
             if slowApplied and hum.WalkSpeed~=slowApplied then slowOriginal=hum.WalkSpeed end
