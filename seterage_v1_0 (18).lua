@@ -2247,15 +2247,28 @@ end
 local function metres(studs)return studs*0.28 end
 local function showMark(mark,name,distance,kind,object)
     mark.labelGui.MaxDistance=state.espRange/0.28
-    local frame,size
-    if object and object:IsA("Model")then
-        local ok,a,b=pcall(function()return object:GetBoundingBox()end)
-        if ok then frame,size=a,b end
+    local humanoid=object and object:IsA("Model")and object:FindFirstChildOfClass("Humanoid")
+    local head=humanoid and object:FindFirstChild("Head")
+    if humanoid and head and head:IsA("BasePart")then
+        local vertical
+        if state.espLabelsBelow then
+            vertical=-(humanoid.HipHeight+mark.anchor.Size.Y/2+.1)
+        else
+            vertical=head.Position.Y-mark.anchor.Position.Y+head.Size.Y/2+.1
+        end
+        mark.labelGui.StudsOffsetWorldSpace=Vector3.new(0,vertical,0)
+    else
+        local frame,size
+        if object and object:IsA("Model")then
+            local ok,a,b=pcall(function()return object:GetBoundingBox()end)
+            if ok then frame,size=a,b end
+        end
+        if not frame then frame,size=mark.anchor.CFrame,mark.anchor.Size end
+        local halfHeight=(math.abs(frame.RightVector.Y)*size.X+math.abs(frame.UpVector.Y)*size.Y+math.abs(frame.LookVector.Y)*size.Z)/2
+        local offset=frame.Position-mark.anchor.Position
+        local vertical=offset.Y+(halfHeight+.15)*(state.espLabelsBelow and -1 or 1)
+        mark.labelGui.StudsOffsetWorldSpace=Vector3.new(offset.X,math.clamp(vertical,-3,3),offset.Z)
     end
-    if not frame then frame,size=mark.anchor.CFrame,mark.anchor.Size end
-    local halfHeight=(math.abs(frame.RightVector.Y)*size.X+math.abs(frame.UpVector.Y)*size.Y+math.abs(frame.LookVector.Y)*size.Z)/2
-    local vertical=(halfHeight+.5)*(state.espLabelsBelow and -1 or 1)
-    mark.labelGui.StudsOffsetWorldSpace=frame.Position-mark.anchor.Position+Vector3.new(0,vertical,0)
     mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
 end
 label("ОБЪЕКТЫ НА КАРТЕ",4000,24)
