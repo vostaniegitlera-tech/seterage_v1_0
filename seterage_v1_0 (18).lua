@@ -3391,9 +3391,10 @@ local function collectVaultIds()
     if animationHead>animationTail then animationQueue,animationHead,animationTail={},1,0 end
 end
 local ownsVaultShift=false
-local vaultTargetDuration=.51 -- requested duration of the walking-vault animation
+local vaultTargetDuration=.48 -- experimental target duration
 local vaultTargetSpeed=1.4166667/vaultTargetDuration -- observed walking animation length / target
 local vaultMotion=nil
+local finesseTrack=nil
 local vaultSpeedEntry=nil
 local function restoreVaultSpeed()
     local entry=vaultSpeedEntry;vaultSpeedEntry=nil
@@ -3482,6 +3483,7 @@ local function prepareVault()
     restoreVaultFlow();vaultStatus(count==0 and "no indexed windows"or "window out of range",nearest,count)
 end
 local function restoreVault()
+    if finesseTrack then pcall(function()finesseTrack:Stop();finesseTrack:Destroy()end);finesseTrack=nil end
     restoreVaultFlow()
     vaultMotion=nil
     state.restoreGameRate("vault")
@@ -3510,6 +3512,34 @@ local function vault(track)
     if ok then
         tracks[track]=speed
         local char=player.Character;local root=char and char:FindFirstChild("HumanoidRootPart")
+        if animator then
+            if finesseTrack then pcall(function()finesseTrack:Stop();finesseTrack:Destroy()end);finesseTrack=nil end
+            local animationObject=Instance.new("Animation")
+            animationObject.AnimationId="rbxassetid://136962284480779"
+            local loaded,result=pcall(function()return animator:LoadAnimation(animationObject)end)
+            animationObject:Destroy()
+            if loaded and result then
+                finesseTrack=result
+                local started,err=pcall(function()
+                    result.Priority=Enum.AnimationPriority.Action4
+                    result:Play(0)
+                end)
+                state.vaultRuntime.finesse={loaded=true,started=started,error=not started and tostring(err)or nil}
+                if started then
+                    task.spawn(function()
+                        local deadline=os.clock()+1
+                        while result.Length<=0 and result.IsPlaying and os.clock()<deadline do task.wait()end
+                        if result.IsPlaying and result.Length>0 then
+                            pcall(function()result:AdjustSpeed(result.Length/vaultTargetDuration)end)
+                            state.vaultRuntime.finesse.length=result.Length
+                        end
+                    end)
+                    task.delay(vaultTargetDuration,function()pcall(function()result:Stop(0)end)end)
+                end
+            else
+                state.vaultRuntime.finesse={loaded=false,error=tostring(result)}
+            end
+        end
         if root and not root.Anchored and state.vaultNearWindow then
             local look=root.CFrame.LookVector;local direction=Vector3.new(look.X,0,look.Z)
             if direction.Magnitude>.1 then
