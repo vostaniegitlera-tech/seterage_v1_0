@@ -4567,6 +4567,27 @@ do
 local slowHum,slowOriginal,slowApplied
 local speedHum,normalSpeed,sprintSpeed
 local healSession
+local movementController,controllerScanAt,controllerScanning=nil,0,false
+local function findMovementController(char)
+    if movementController and rawget(movementController,"character")==char then return movementController end
+    movementController=nil
+    if not char or type(getgc)~="function" or controllerScanning or os.clock()<controllerScanAt then return nil end
+    controllerScanAt=os.clock()+3;controllerScanning=true
+    task.spawn(function()
+        local ok,objects=pcall(getgc,true)
+        if ok and type(objects)=="table"then
+            for _,candidate in ipairs(objects)do
+                if type(candidate)=="table" and rawget(candidate,"character")==char
+                    and rawget(candidate,"isSlowedFromFall")~=nil and rawget(candidate,"_movement")~=nil then
+                    if state.alive and player.Character==char then movementController=candidate end
+                    break
+                end
+            end
+        end
+        controllerScanning=false
+    end)
+    return nil
+end
 local healInfo=label("Самохил: нажми кнопку, когда ранен и не нокнут.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
 local function boolFlag(object,name)
     if not object then return false end
@@ -4674,7 +4695,9 @@ connect(RunService.Heartbeat,function(dt)
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local active=state.alive and hum and hum.Health>0 and not state.isDowned(char)
     if hum~=speedHum then releaseSlow(false);speedHum=hum;normalSpeed,sprintSpeed=nil,nil;stopHealing()end
-    local hasSlow=active and slowed(char,hum)
+    local controller=state.noSlowdown and active and findMovementController(char)
+    local fallSlow=controller and rawget(controller,"isSlowedFromFall")==true
+    local hasSlow=active and (slowed(char,hum) or fallSlow)
     local isBusy=active and busy(char,hum)
     if active and not hasSlow and not isBusy and hum.WalkSpeed>=4 then
         if sprinting(char,hum)then sprintSpeed=hum.WalkSpeed else normalSpeed=hum.WalkSpeed end
@@ -4684,6 +4707,12 @@ connect(RunService.Heartbeat,function(dt)
         local baseline=(sprinting(char,hum)and sprintSpeed or normalSpeed)
             or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")
         if type(boost)=="number" and boost>0 and boost<1 then
+            local running=sprinting(char,hum)
+            local standard=running and char:GetAttribute("Speed") or 10
+            if type(standard)~="number" or standard<1 or standard>40 then standard=running and 17 or 10 end
+            baseline=math.max(type(baseline)=="number" and baseline or 0,standard)
+        end
+        if fallSlow then
             local running=sprinting(char,hum)
             local standard=running and char:GetAttribute("Speed") or 10
             if type(standard)~="number" or standard<1 or standard>40 then standard=running and 17 or 10 end
