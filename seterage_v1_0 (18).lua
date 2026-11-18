@@ -71,7 +71,7 @@ local state = {
     espLabelsBelow=false,espGeneratorState=false,espPlayerState=false,
     killerDistance = false, survivorDistance = false, espRange = 500,
 
-    crosshair = false, stats = false, parry = false, abyssAutoCrouch = false,
+    crosshair = false, stats = false, parry = false, abyssAutoCrouch = false, antiFakeHit=false, killerAimbot=false,
     fastBreak = false, breakMultiplier = 3,
     antiKnock = false, antiBlind = false, hiddenAim = false,
     hiddenFov = 150, hiddenStrength = 18, hiddenBind = Enum.KeyCode.Unknown,
@@ -1218,13 +1218,13 @@ local function parryInput()
         if mouseButton~=nil then
             local point = Input:GetMouseLocation()
             local ok, reason = pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, mouseButton, true, game, 0) end)
-            pcall(function() virtualInput:SendMouseButtonEvent(point.X, point.Y, mouseButton, false, game, 0) end)
+            if ok then task.delay(.03,function()pcall(function()virtualInput:SendMouseButtonEvent(point.X,point.Y,mouseButton,false,game,0)end)end)end
             if not ok then error(reason) end
         else
             local keyCode = Enum.KeyCode[inputName]
             if not keyCode or keyCode==Enum.KeyCode.Unknown then error("Unknown item key: "..inputName)end
             local ok, reason = pcall(function() virtualInput:SendKeyEvent(true, keyCode, false, game) end)
-            pcall(function() virtualInput:SendKeyEvent(false, keyCode, false, game) end)
+            if ok then task.delay(.03,function()pcall(function()virtualInput:SendKeyEvent(false,keyCode,false,game)end)end)end
             if not ok then error(reason) end
         end
     end
@@ -1249,6 +1249,10 @@ local function handleAttack(who,track,observed)
     local anim=track.Animation
     local id=anim and anim.AnimationId:match("%d+")
     local name=anim and tostring(anim.Name or ""):lower():gsub("[^a-z0-9]","")or ""
+    if state.antiFakeHit and not(id and attackIds[id])then
+        if observed then parryRecord("skipped",track,"anti fake: unknown animation")end
+        return
+    end
     if not(id and attackIds[id])and name~="basicattack"and name~="m1attack"and name~="m1"and name~="swing"then if observed then parryRecord("skipped",track,"unknown animation")end;return end
     if os.clock()-lastParry<state.parryCooldown then if observed then parryRecord("skipped",track,"cooldown")end;return end
     if nativeParryClient and(nativeParryClient.isParryOnCooldown or nativeParryClient.isParryResolving)then
@@ -1352,6 +1356,7 @@ state.setParry = function(enabled)
 end
 label("АВТО ДАГГЕР / ПАРИРОВАНИЕ", 1340, 24)
 toggle("parry", "Автопарирование", 1370)
+toggle("antiFakeHit","Anti Fake Hit · тест",1370.1)
 do
 local watchers,elapsed,lastInput={},0,0
 local function clearWatchers()
@@ -1776,6 +1781,24 @@ connect(RunService.RenderStepped,function(dt)
         cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(cam.CFrame.Position,target.Position),math.clamp(dt*state.hiddenStrength,0,1))
     end
 end)
+connect(RunService.RenderStepped,function(dt)
+    if not state.alive or not state.killerAimbot or not isKiller(player) or Input:GetFocusedTextBox()
+        or state.hiddenAim or state.veilSpearAim then return end
+    local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
+    local animator=hum and hum:FindFirstChildOfClass("Animator")
+    local cam=Workspace.CurrentCamera
+    if not animator or not cam then return end
+    local attacking=false
+    for _,track in ipairs(animator:GetPlayingAnimationTracks())do
+        local id=track.Animation and track.Animation.AnimationId:match("%d+")
+        if track.IsPlaying and id and attackIds[id]then attacking=true;break end
+    end
+    if not attacking then return end
+    local target=hiddenTarget(cam)
+    if target and (target.Position-cam.CFrame.Position).Magnitude<=25 then
+        cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(cam.CFrame.Position,target.Position),math.clamp(dt*18,0,1))
+    end
+end)
 local extensionElapsed=0
 connect(RunService.Heartbeat,function(dt)
     extensionElapsed=extensionElapsed+dt
@@ -1892,6 +1915,7 @@ numberInput(2985,150,20,299,function(v)state.veilSpearDistance=v end)
 toggle("veilSpearShowLine","Показывать линию цели",2985.1)
 toggle("veilSpearShowFov","Показывать круг FOV",2985.2)
 toggle("veilSpearPrediction","Авто предикт движения",2985.3)
+toggle("killerAimbot","AimBot маньяка при атаке · тест",2986)
 do
 local circle=Instance.new("Frame");circle.Name="VeilSpearFov";circle.AnchorPoint=Vector2.new(.5,.5)
 circle.Position=UDim2.fromScale(.5,.5);circle.BackgroundTransparency=1;circle.Visible=false;circle.Parent=crossGui
@@ -5002,7 +5026,8 @@ local function groupFor(section,y)
         if y>=2410 then return "survivorProtection","Cheat Mode",5 end
         return "dagger","Даггер",4
     elseif section=="killer"then
-        if y>=2981 and y<=2986 then return "veilSpear","Veil Spear",4 end
+        if y==2986 then return "killerAimbot","AimBot маньяка",5 end
+        if y>=2981 and y<2986 then return "veilSpear","Veil Spear",4 end
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
         if y>=2534 then return "killerProtection","Cheat Mode",2 end
         return "palletBreak","Палеты",1
