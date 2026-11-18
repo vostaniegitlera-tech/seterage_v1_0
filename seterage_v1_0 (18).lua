@@ -4567,35 +4567,6 @@ do
 local slowHum,slowOriginal,slowApplied
 local speedHum,normalSpeed,sprintSpeed
 local healSession
-local palletController,palletOriginal,palletWrapper
-task.spawn(function()
-    local ok,controller=pcall(function()
-        return require(game:GetService("ReplicatedStorage").Modules.Survivors.SurvivorAnimationsController)
-    end)
-    if not state.alive or not ok or type(controller)~="table" or type(controller._onPalletDrop)~="function" then
-        state.palletNoSlowStatus="controller unavailable";return
-    end
-    local original=controller._onPalletDrop
-    local wrapper=function(self,...)
-        if state.alive and state.noSlowdown and self.character==player.Character then
-            state.palletNoSlowStatus="local drop movement skipped"
-            return
-        end
-        return original(self,...)
-    end
-    local installed=pcall(function()controller._onPalletDrop=wrapper end)
-    if installed and controller._onPalletDrop==wrapper then
-        palletController,palletOriginal,palletWrapper=controller,original,wrapper
-        state.palletNoSlowStatus="adapter ready"
-    else state.palletNoSlowStatus="adapter unavailable" end
-end)
-local palletDropUntil=0
-local dropSignal=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-dropSignal=dropSignal and dropSignal:FindFirstChild("Pallet")
-dropSignal=dropSignal and dropSignal:FindFirstChild("Dropbindable")
-if dropSignal and dropSignal:IsA("BindableEvent")then
-    connect(dropSignal.Event,function()palletDropUntil=os.clock()+.5 end)
-end
 local healInfo=label("Самохил: нажми кнопку, когда ранен и не нокнут.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
 local function boolFlag(object,name)
     if not object then return false end
@@ -4634,16 +4605,11 @@ local function stopHealing()
 end
 state.stopSelfHeal=stopHealing
 state.resetSurvival=function()releaseSlow(false);stopHealing()end
-connect(gui.Destroying,function()
-    if palletController and palletController._onPalletDrop==palletWrapper then
-        pcall(function()palletController._onPalletDrop=palletOriginal end)
-    end
-end)
 local function injured(char,hum)
     return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
 end
 toggle("noSlowdown","No slowdown",3800)
-label("Скорость при замедлении и сбросе палеты · тест.",3840,28)
+label("Скорость при распознанном замедлении · тест.",3840,28)
 local function toggleSelfHeal()
     if healSession then stopHealing();healInfo.Text="Самохил остановлен.";return end
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
@@ -4704,15 +4670,14 @@ connect(RunService.Heartbeat,function(dt)
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local active=state.alive and hum and hum.Health>0 and not state.isDowned(char)
     if hum~=speedHum then releaseSlow(false);speedHum=hum;normalSpeed,sprintSpeed=nil,nil;stopHealing()end
-    local palletDrop=active and os.clock()<palletDropUntil
-    local hasSlow=active and (slowed(char,hum) or palletDrop)
+    local hasSlow=active and slowed(char,hum)
     local isBusy=active and busy(char,hum)
     if active and not hasSlow and not isBusy and hum.WalkSpeed>=4 then
         if sprinting(char,hum)then sprintSpeed=hum.WalkSpeed else normalSpeed=hum.WalkSpeed end
     end
-    if active and state.noSlowdown and hasSlow and not isBusy and (hum.WalkSpeed>0 or palletDrop) then
+    if active and state.noSlowdown and hasSlow and not isBusy and hum.WalkSpeed>0 then
         local baseline=(sprinting(char,hum)and sprintSpeed or normalSpeed)
-            or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")or (palletDrop and char:GetAttribute("Speed"))
+            or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")
         if type(baseline)=="number"and baseline>0 and baseline<=40 then
             if slowHum~=hum then releaseSlow(false);slowHum=hum;slowOriginal=hum.WalkSpeed end
             if slowApplied and hum.WalkSpeed~=slowApplied then slowOriginal=hum.WalkSpeed end
@@ -4878,7 +4843,7 @@ state.diagnosticReport=function()
         if velocity then report.character.velocity={velocity.X,velocity.Y,velocity.Z}end
         report.character.requestedSpeed=state.godRequestedSpeed
     end
-    report.slowdown=state.slowdownStatus;report.palletNoSlow=state.palletNoSlowStatus
+    report.slowdown=state.slowdownStatus
     report.emotes=state.emoteDiagnostics and state.emoteDiagnostics()or nil
     report.healing={active=state.selfHealing or false,status=state.healInfo and state.healInfo.Text or nil,equipped={}}
     if char then for _,item in ipairs(char:GetChildren())do if item:IsA("Tool")then
