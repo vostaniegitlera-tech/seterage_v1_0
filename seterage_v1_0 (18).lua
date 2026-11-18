@@ -74,7 +74,7 @@ local state = {
     crosshair = false, stats = false, parry = false, abyssAutoCrouch = false, antiFakeHit=false, killerAimbot=false,
     fastBreak = false, breakMultiplier = 3,
     antiKnock = false, antiBlind = false, hiddenAim = false,
-    hiddenFov = 150, hiddenStrength = 18, hiddenBind = Enum.KeyCode.Unknown,
+    hiddenFov = 150, hiddenStrength = 18, hiddenBind = Enum.KeyCode.Unknown, killerAimStrength=18,
     veilSpearAim=false,veilSpearFov=150,veilSpearDistance=150,
     veilSpearShowLine=true,veilSpearShowFov=true,veilSpearPrediction=false,
 
@@ -1794,9 +1794,27 @@ connect(RunService.RenderStepped,function(dt)
         if track.IsPlaying and id and attackIds[id]then attacking=true;break end
     end
     if not attacking then return end
-    local target=hiddenTarget(cam)
-    if target and (target.Position-cam.CFrame.Position).Magnitude<=25 then
-        cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(cam.CFrame.Position,target.Position),math.clamp(dt*18,0,1))
+    local target,nearest=nil,25
+    local ownRoot=char:FindFirstChild("HumanoidRootPart")
+    if not ownRoot then return end
+    for _,who in ipairs(Players:GetPlayers())do
+        local team=who.Team and who.Team.Name:lower();local other=who.Character
+        local otherHum=other and other:FindFirstChildOfClass("Humanoid")
+        local root=other and other:FindFirstChild("HumanoidRootPart")
+        if who~=player and (team=="survivor" or team=="survivors") and root and otherHum
+            and otherHum.Health>0 and other:GetAttribute("Downed")~=true and other:GetAttribute("Knocked")~=true then
+            local distance=(root.Position-ownRoot.Position).Magnitude
+            if distance<nearest then
+                local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Exclude
+                params.FilterDescendantsInstances={char,other}
+                if not Workspace:Raycast(cam.CFrame.Position,root.Position-cam.CFrame.Position,params)then
+                    target,nearest=root,distance
+                end
+            end
+        end
+    end
+    if target then
+        cam.CFrame=cam.CFrame:Lerp(CFrame.lookAt(cam.CFrame.Position,target.Position),math.clamp(dt*state.killerAimStrength,0,1))
     end
 end)
 local extensionElapsed=0
@@ -1916,6 +1934,8 @@ toggle("veilSpearShowLine","Показывать линию цели",2985.1)
 toggle("veilSpearShowFov","Показывать круг FOV",2985.2)
 toggle("veilSpearPrediction","Авто предикт движения",2985.3)
 toggle("killerAimbot","AimBot маньяка при атаке · тест",2986)
+label("Скорость доводки: 1–40",2987,24)
+numberInput(2988,18,1,40,function(v)state.killerAimStrength=v end)
 do
 local circle=Instance.new("Frame");circle.Name="VeilSpearFov";circle.AnchorPoint=Vector2.new(.5,.5)
 circle.Position=UDim2.fromScale(.5,.5);circle.BackgroundTransparency=1;circle.Visible=false;circle.Parent=crossGui
@@ -2024,6 +2044,7 @@ local schemaNumbers={
     parryCooldown={0.2,5,1810},breakMultiplier={1,10,2200},
     hiddenFov={35,400,2826},hiddenStrength={1,40,2896},vaultSpeedValue={1,20,2497},
     veilSpearFov={50,499,2983},veilSpearDistance={20,299,2985},
+    killerAimStrength={1,40,2988},
     espRange={10,1500,4320},
     uiWidth={420,1200},uiHeight={320,1000},sideWidth={88,160},
     uiTextScale={0.85,1.3},uiRadius={0,20},menuX={0,1},menuY={0,1},
@@ -5026,7 +5047,7 @@ local function groupFor(section,y)
         if y>=2410 then return "survivorProtection","Cheat Mode",5 end
         return "dagger","Даггер",4
     elseif section=="killer"then
-        if y==2986 then return "killerAimbot","AimBot маньяка",5 end
+        if y>=2986 and y<=2988 then return "killerAimbot","AimBot маньяка",5 end
         if y>=2981 and y<2986 then return "veilSpear","Veil Spear",4 end
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
         if y>=2534 then return "killerProtection","Cheat Mode",2 end
