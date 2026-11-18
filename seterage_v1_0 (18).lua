@@ -76,6 +76,7 @@ local state = {
     antiKnock = false, antiBlind = false, hiddenAim = false,
     hiddenFov = 150, hiddenStrength = 18, hiddenBind = Enum.KeyCode.Unknown,
     veilSpearAim=false,veilSpearFov=150,veilSpearDistance=150,
+    veilSpearShowLine=true,veilSpearShowFov=true,veilSpearPrediction=false,
 
     crossSize = 12, crossColor = Color3.fromRGB(255, 255, 255),
     uiScale = 1, menuAlpha = 0, parryRadius = 12, faceSensitivity = 0.7,
@@ -1888,6 +1889,9 @@ label("FOV копья: 50–499 пикселей",2982,24)
 numberInput(2983,150,50,499,function(v)state.veilSpearFov=v end)
 label("Дистанция копья: 20–299 студов",2984,24)
 numberInput(2985,150,20,299,function(v)state.veilSpearDistance=v end)
+toggle("veilSpearShowLine","Показывать линию цели",2985.1)
+toggle("veilSpearShowFov","Показывать круг FOV",2985.2)
+toggle("veilSpearPrediction","Авто предикт движения",2985.3)
 do
 local circle=Instance.new("Frame");circle.Name="VeilSpearFov";circle.AnchorPoint=Vector2.new(.5,.5)
 circle.Position=UDim2.fromScale(.5,.5);circle.BackgroundTransparency=1;circle.Visible=false;circle.Parent=crossGui
@@ -1929,11 +1933,23 @@ dispatcher.active=function(remote,args)
         if args[1]=="charge" then chargingAt=os.clock()
         elseif args[1]=="cancel" then chargingAt=nil end
     elseif remote==spear then
+        local chargeTime=chargingAt and math.max(0,os.clock()-chargingAt) or nil
         chargingAt=nil
         local packet=args[1]
         if chosen and chosen.Parent and canSee and type(packet)=="table" and typeof(packet.Origin)=="Vector3" then
             local delta=chosen.Position-packet.Origin
             if delta.Magnitude>0.001 and delta.Magnitude<=state.veilSpearDistance then
+                if state.veilSpearPrediction and chargeTime then
+                    local speed=math.clamp(chargeTime*165,1,165)
+                    local velocity=chosen.AssemblyLinearVelocity
+                    local gravity=Vector3.new(0,-98.1,0)
+                    local travel=math.clamp(delta.Magnitude/speed,0,4)
+                    for _=1,5 do
+                        local lead=delta+velocity*travel-gravity*(.5*travel*travel)
+                        travel=math.clamp(lead.Magnitude/speed,0,4)
+                    end
+                    delta=delta+velocity*travel-gravity*(.5*travel*travel)
+                end
                 local copy={};for key,value in pairs(packet)do copy[key]=value end
                 copy.Direction=delta.Unit;args[1]=copy
             end
@@ -1946,7 +1962,7 @@ connect(RunService.RenderStepped,function()
     local char=player.Character;local cam=Workspace.CurrentCamera
     if not state.alive or not state.veilSpearAim or not cam or not char or not isKiller(player)
         or player:GetAttribute("SelectedKiller")~="Veil" then chargingAt=nil;return end
-    circle.Visible=true;circle.Size=UDim2.fromOffset(state.veilSpearFov*2,state.veilSpearFov*2)
+    circle.Visible=state.veilSpearShowFov;circle.Size=UDim2.fromOffset(state.veilSpearFov*2,state.veilSpearFov*2)
     local center=cam.ViewportSize/2;local best=state.veilSpearFov
     for _,who in ipairs(Players:GetPlayers())do
         local team=who.Team and who.Team.Name:lower();local target=who.Character
@@ -1969,7 +1985,7 @@ connect(RunService.RenderStepped,function()
         line.Rotation=math.deg(math.atan2(dy,dx))
         local ready=dispatcher.installed and canSee and char:GetAttribute("spearmode")==true
             and char:GetAttribute("IsStunned")~=true and chargingAt and os.clock()-chargingAt>=.4
-        line.BackgroundColor3=ready and Color3.fromRGB(50,230,90) or Color3.fromRGB(240,60,60);line.Visible=true
+        line.BackgroundColor3=ready and Color3.fromRGB(50,230,90) or Color3.fromRGB(240,60,60);line.Visible=state.veilSpearShowLine
     end
 end)
 end
@@ -4986,7 +5002,7 @@ local function groupFor(section,y)
         if y>=2410 then return "survivorProtection","Cheat Mode",5 end
         return "dagger","Даггер",4
     elseif section=="killer"then
-        if y>=2981 and y<=2985 then return "veilSpear","Veil Spear",4 end
+        if y>=2981 and y<=2986 then return "veilSpear","Veil Spear",4 end
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
         if y>=2534 then return "killerProtection","Cheat Mode",2 end
         return "palletBreak","Палеты",1
