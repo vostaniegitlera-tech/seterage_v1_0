@@ -4567,6 +4567,28 @@ do
 local slowHum,slowOriginal,slowApplied
 local speedHum,normalSpeed,sprintSpeed
 local healSession
+local palletController,palletOriginal,palletWrapper
+task.spawn(function()
+    local ok,controller=pcall(function()
+        return require(game:GetService("ReplicatedStorage").Modules.Survivors.SurvivorAnimationsController)
+    end)
+    if not state.alive or not ok or type(controller)~="table" or type(controller._onPalletDrop)~="function" then
+        state.palletNoSlowStatus="controller unavailable";return
+    end
+    local original=controller._onPalletDrop
+    local wrapper=function(self,...)
+        if state.alive and state.noSlowdown and self.character==player.Character then
+            state.palletNoSlowStatus="local drop movement skipped"
+            return
+        end
+        return original(self,...)
+    end
+    local installed=pcall(function()controller._onPalletDrop=wrapper end)
+    if installed and controller._onPalletDrop==wrapper then
+        palletController,palletOriginal,palletWrapper=controller,original,wrapper
+        state.palletNoSlowStatus="adapter ready"
+    else state.palletNoSlowStatus="adapter unavailable" end
+end)
 local palletDropUntil=0
 local dropSignal=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
 dropSignal=dropSignal and dropSignal:FindFirstChild("Pallet")
@@ -4587,7 +4609,9 @@ local function anyFlag(char,hum,names)
     return false
 end
 local function slowed(char,hum)
-    return anyFlag(char,hum,{"Slowed","Hindered","Slowdown","Slow","MovementDebuff","SpeedDebuff","SlowStacks"})
+    local boost=char and char:GetAttribute("speedboost")
+    return (type(boost)=="number" and boost>=0 and boost<1)
+        or anyFlag(char,hum,{"Slowed","Hindered","Slowdown","Slow","MovementDebuff","SpeedDebuff","SlowStacks"})
 end
 local function busy(char,hum)
     return state.selfHealing or anyFlag(char,hum,{"Hooked","IsHooked","Carried","BeingCarried","Stunned","Frozen","Repairing","Healing","Vaulting","IsVaulting","UsingItem","Attacking"})
@@ -4610,6 +4634,11 @@ local function stopHealing()
 end
 state.stopSelfHeal=stopHealing
 state.resetSurvival=function()releaseSlow(false);stopHealing()end
+connect(gui.Destroying,function()
+    if palletController and palletController._onPalletDrop==palletWrapper then
+        pcall(function()palletController._onPalletDrop=palletOriginal end)
+    end
+end)
 local function injured(char,hum)
     return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
 end
@@ -4849,7 +4878,7 @@ state.diagnosticReport=function()
         if velocity then report.character.velocity={velocity.X,velocity.Y,velocity.Z}end
         report.character.requestedSpeed=state.godRequestedSpeed
     end
-    report.slowdown=state.slowdownStatus
+    report.slowdown=state.slowdownStatus;report.palletNoSlow=state.palletNoSlowStatus
     report.emotes=state.emoteDiagnostics and state.emoteDiagnostics()or nil
     report.healing={active=state.selfHealing or false,status=state.healInfo and state.healInfo.Text or nil,equipped={}}
     if char then for _,item in ipairs(char:GetChildren())do if item:IsA("Tool")then
