@@ -9,7 +9,7 @@
 -- Measured via Roblox asset thumbnails: Goal 81439630577699 and Line 111710874697114.
 -- Needle zero points up; white arc is about 104..114 degrees, ordinary arc 115..159.
 -- Fast Vault experimentally requests sprint and adjusts one walking-vault animation and brief horizontal velocity.
--- Silent aim for Veil/pistol is not implemented; Hidden M2 remains camera Aim Lock.
+-- Experimental Veil spear targeting; Hidden M2 remains camera Aim Lock.
 -- Next-round panel shows explicit announcements only; it cannot predict hidden RNG.
 -- Skill UI layout/angle reference: mycompiler.io/view/EFkMyDPCcgK (Rxmmy).
 -- Event names are based on the publicly readable moz3hwolfv2/Violence-District
@@ -21,7 +21,7 @@
 -- auto run(pc) holds native LeftShift while moving; mobile uses an observable Sprint toggle.
 -- VD emotes use the native handler when present; the server decides access and original audio.
 -- Named configs are stored as data in seterage_profiles.json, with legacy-file migration.
--- No new namecall hooks are installed. Legacy dispatcher, if present, is deactivated.
+-- The Veil spear adapter installs a guarded namecall hook where supported.
 -- Moonwalk uses camera-relative movement and alternating yaw; live-game unverified.
 -- Engine reference: create.roblox.com/docs/reference/engine/classes/Humanoid
 -- Engine reference: create.roblox.com/docs/reference/engine/datatypes/CFrame
@@ -75,6 +75,7 @@ local state = {
     fastBreak = false, breakMultiplier = 3,
     antiKnock = false, antiBlind = false, hiddenAim = false,
     hiddenFov = 150, hiddenStrength = 18, hiddenBind = Enum.KeyCode.Unknown,
+    veilSpearAim=false,veilSpearFov=150,veilSpearDistance=150,
 
     crossSize = 12, crossColor = Color3.fromRGB(255, 255, 255),
     uiScale = 1, menuAlpha = 0, parryRadius = 12, faceSensitivity = 0.7,
@@ -1882,6 +1883,96 @@ connect(Input.InputBegan,function(input,processed)
     end
 end)
 label("Управляет камерой только во время известной M2-анимации.\nДругие способности и обычные атаки не включают наведение.",2980,44)
+toggle("veilSpearAim","Veil Spear Silent Aim · тест",2981)
+label("FOV копья: 50–499 пикселей",2982,24)
+numberInput(2983,150,50,499,function(v)state.veilSpearFov=v end)
+label("Дистанция копья: 20–299 студов",2984,24)
+numberInput(2985,150,20,299,function(v)state.veilSpearDistance=v end)
+do
+local circle=Instance.new("Frame");circle.Name="VeilSpearFov";circle.AnchorPoint=Vector2.new(.5,.5)
+circle.Position=UDim2.fromScale(.5,.5);circle.BackgroundTransparency=1;circle.Visible=false;circle.Parent=crossGui
+local round=Instance.new("UICorner");round.CornerRadius=UDim.new(1,0);round.Parent=circle
+local edge=Instance.new("UIStroke");edge.Thickness=1;edge.Transparency=.25;edge.Color=Color3.fromRGB(210,90,255);edge.Parent=circle
+local line=Instance.new("Frame");line.Name="VeilSpearTarget";line.AnchorPoint=Vector2.new(0,.5)
+line.BorderSizePixel=0;line.Visible=false;line.Parent=crossGui
+local chosen,canSee,chargingAt=nil,false,nil
+local remotes=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+local killers=remotes and remotes:FindFirstChild("Killers")
+local veil=killers and killers:FindFirstChild("Veil")
+local spear=veil and veil:FindFirstChild("Spearthrow")
+local spearState=veil and veil:FindFirstChild("SpearState")
+local adapter={active=true}
+local dispatcher=env.SETERAGE_VEIL_DISPATCH
+if type(dispatcher)~="table" then
+    dispatcher={};env.SETERAGE_VEIL_DISPATCH=dispatcher
+    if type(hookmetamethod)=="function" and type(getnamecallmethod)=="function" then
+        local old
+        local function intercept(remote,...)
+            local current=dispatcher.active
+            if current and getnamecallmethod()=="FireServer" then
+                local args=table.pack(...)
+                local ok=pcall(current,remote,args)
+                if ok then return old(remote,table.unpack(args,1,args.n)) end
+            end
+            return old(remote,...)
+        end
+        local ok,result=pcall(function()
+            old=hookmetamethod(game,"__namecall",type(newcclosure)=="function" and newcclosure(intercept) or intercept)
+            return type(old)=="function"
+        end)
+        dispatcher.installed=ok and result
+    end
+end
+dispatcher.active=function(remote,args)
+    if not state.alive or not adapter.active or not state.veilSpearAim then return end
+    if remote==spearState then
+        if args[1]=="charge" then chargingAt=os.clock()
+        elseif args[1]=="cancel" then chargingAt=nil end
+    elseif remote==spear then
+        chargingAt=nil
+        local packet=args[1]
+        if chosen and chosen.Parent and canSee and type(packet)=="table" and typeof(packet.Origin)=="Vector3" then
+            local delta=chosen.Position-packet.Origin
+            if delta.Magnitude>0.001 and delta.Magnitude<=state.veilSpearDistance then
+                local copy={};for key,value in pairs(packet)do copy[key]=value end
+                copy.Direction=delta.Unit;args[1]=copy
+            end
+        end
+    end
+end
+connect(gui.Destroying,function()adapter.active=false;if dispatcher.active then dispatcher.active=nil end end)
+connect(RunService.RenderStepped,function()
+    chosen=nil;canSee=false;circle.Visible=false;line.Visible=false
+    local char=player.Character;local cam=Workspace.CurrentCamera
+    if not state.alive or not state.veilSpearAim or not cam or not char or not isKiller(player)
+        or player:GetAttribute("SelectedKiller")~="Veil" then chargingAt=nil;return end
+    circle.Visible=true;circle.Size=UDim2.fromOffset(state.veilSpearFov*2,state.veilSpearFov*2)
+    local center=cam.ViewportSize/2;local best=state.veilSpearFov
+    for _,who in ipairs(Players:GetPlayers())do
+        local team=who.Team and who.Team.Name:lower();local target=who.Character
+        local hum=target and target:FindFirstChildOfClass("Humanoid")
+        local root=target and target:FindFirstChild("HumanoidRootPart")
+        if who~=player and (team=="survivor" or team=="survivors") and hum and hum.Health>0 and root
+            and target:GetAttribute("Knocked")~=true and target:GetAttribute("Downed")~=true
+            and (root.Position-cam.CFrame.Position).Magnitude<=state.veilSpearDistance then
+            local point,visible=cam:WorldToViewportPoint(root.Position)
+            local d=(Vector2.new(point.X,point.Y)-center).Magnitude
+            if visible and point.Z>0 and d<best then chosen=root;best=d end
+        end
+    end
+    if chosen then
+        local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances={char,chosen.Parent}
+        canSee=Workspace:Raycast(cam.CFrame.Position,chosen.Position-cam.CFrame.Position,params)==nil
+        local point=cam:WorldToViewportPoint(chosen.Position);local dx,dy=point.X-center.X,point.Y-center.Y
+        line.Position=UDim2.fromOffset(center.X,center.Y);line.Size=UDim2.fromOffset(math.sqrt(dx*dx+dy*dy),2)
+        line.Rotation=math.deg(math.atan2(dy,dx))
+        local ready=dispatcher.installed and canSee and char:GetAttribute("spearmode")==true
+            and char:GetAttribute("IsStunned")~=true and chargingAt and os.clock()-chargingAt>=.4
+        line.BackgroundColor3=ready and Color3.fromRGB(50,230,90) or Color3.fromRGB(240,60,60);line.Visible=true
+    end
+end)
+end
 label("ПОКА НЕТ ПОДТВЕРЖДЁННОЙ РЕАЛИЗАЦИИ",3036,32)
 label("No Slowdown и Silent Aim Twist of Fate требуют данных игры.\nОбычная скорость WalkSpeed не фиксируется.\nНастройки-заглушки для этих функций не добавлены.",3076,66)
 
@@ -1892,6 +1983,7 @@ local schemaNumbers={
     parryRadius={2,25,1440},faceSensitivity={-1,1,1510},parryDelay={0,0.5,1740},
     parryCooldown={0.2,5,1810},breakMultiplier={1,10,2200},
     hiddenFov={35,400,2826},hiddenStrength={1,40,2896},vaultSpeedValue={1,20,2497},
+    veilSpearFov={50,499,2983},veilSpearDistance={20,299,2985},
     espRange={10,1500,4320},
     uiWidth={420,1200},uiHeight={320,1000},sideWidth={88,160},
     uiTextScale={0.85,1.3},uiRadius={0,20},menuX={0,1},menuY={0,1},
@@ -4894,6 +4986,7 @@ local function groupFor(section,y)
         if y>=2410 then return "survivorProtection","Cheat Mode",5 end
         return "dagger","Даггер",4
     elseif section=="killer"then
+        if y>=2981 and y<=2985 then return "veilSpear","Veil Spear",4 end
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
         if y>=2534 then return "killerProtection","Cheat Mode",2 end
         return "palletBreak","Палеты",1
