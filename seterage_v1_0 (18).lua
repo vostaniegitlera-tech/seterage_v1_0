@@ -4585,7 +4585,11 @@ local function slowed(char,hum)
         or anyFlag(char,hum,{"Slowed","Hindered","Slowdown","Slow","MovementDebuff","SpeedDebuff","SlowStacks"})
 end
 local function busy(char,hum)
-    return state.selfHealing or anyFlag(char,hum,{"Hooked","IsHooked","Carried","BeingCarried","Stunned","Frozen","Repairing","Healing","Vaulting","IsVaulting","UsingItem","Attacking"})
+    local root=char and char:FindFirstChild("HumanoidRootPart")
+    local action=char and char:GetAttribute("ActionState")
+    return state.selfHealing or (root and (root.Anchored or root:HasTag("doing action")))
+        or (type(action)=="string" and action~="")
+        or anyFlag(char,hum,{"Hooked","IsHooked","Carried","BeingCarried","Stunned","Frozen","Repairing","Healing","Vaulting","IsVaulting","UsingItem","Attacking","Crouching","MovementLocked","Rooted"})
 end
 local function sprinting(char,hum)
     if boolFlag(char,"Sprinting")or boolFlag(hum,"Sprinting")then return true end
@@ -4676,8 +4680,15 @@ connect(RunService.Heartbeat,function(dt)
         if sprinting(char,hum)then sprintSpeed=hum.WalkSpeed else normalSpeed=hum.WalkSpeed end
     end
     if active and state.noSlowdown and hasSlow and not isBusy and hum.WalkSpeed>0 then
+        local boost=char:GetAttribute("speedboost")
         local baseline=(sprinting(char,hum)and sprintSpeed or normalSpeed)
             or hum:GetAttribute("BaseWalkSpeed")or char:GetAttribute("BaseWalkSpeed")
+        if type(boost)=="number" and boost>0 and boost<1 then
+            local running=sprinting(char,hum)
+            local standard=running and char:GetAttribute("Speed") or 10
+            if type(standard)~="number" or standard<1 or standard>40 then standard=running and 17 or 10 end
+            baseline=math.max(type(baseline)=="number" and baseline or 0,standard)
+        end
         if type(baseline)=="number"and baseline>0 and baseline<=40 then
             if slowHum~=hum then releaseSlow(false);slowHum=hum;slowOriginal=hum.WalkSpeed end
             if slowApplied and hum.WalkSpeed~=slowApplied then slowOriginal=hum.WalkSpeed end
