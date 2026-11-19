@@ -5152,8 +5152,8 @@ local function relayout()
         for _,group in ipairs(groupsByPage[name])do
             local closed=state.collapsedGroups[group.id]==true
             group.header.Text=(closed and "+ "or "− ")..group.title
-            group.header.Position=UDim2.fromOffset(14,y);group.header.Size=UDim2.new(1,-28,0,32)
-            y=y+40
+            group.header.Position=UDim2.fromOffset(14,y);group.header.Size=UDim2.new(1,-28,0,24)
+            y=y+32
             for _,entry in ipairs(group.entries)do
                 local item=entry.item
                 item.Visible=not closed and(not entry.hint or state.showHints)
