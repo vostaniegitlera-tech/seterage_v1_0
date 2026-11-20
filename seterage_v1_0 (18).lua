@@ -566,12 +566,13 @@ connect(RunService.RenderStepped, function(dt)
     end
     previousNeedle,previousGoal=currentNeedle,currentGoal
     traceSkill("sample",needle,goal,state.skillZoneSource,false)
-    if skillUsed or Input:GetFocusedTextBox()then return end
+    if skillUsed or os.clock()-skillSentAt<.2 or Input:GetFocusedTextBox()then return end
     local relative=(currentNeedle-currentGoal)%360
     local allowed,reason=state.skillTargetAllowed(check,goal,relative)
     if not allowed then if reason then status.Text=reason end;return end
-    skillUsed=true;skillSentAt=os.clock()
+    skillSentAt=os.clock()
     local ok=pcall(sendSkillInput)
+    skillUsed=ok
     traceSkill("sent",needle,goal,ok and state.skillZoneSource or "input error",true)
     status.Text=ok and "Авто: нажатие отправлено; успех подтверждает игра."
         or "Авто: ввод недоступен. Отключи функцию и пройди проверку вручную."
@@ -735,7 +736,7 @@ label("КАМЕРА", 230, 24)
 toggle("fov", "FOV", 260)
 label("Вертикальный FOV: от 40 до 120", 302, 24)
 numberInput(330, 90, 40, 120, function(v) state.targetFov = v; updateCamera() end)
-toggle("stretch", "Растяжение", 372)
+toggle("stretch", "Stretch", 372)
 do
 local choice=state.dropdown(373,"Метод",function()return {{value="Auto",label="Авто"},{value="Native",label="Нативный"},{value="Matrix",label="Матрица"}}end,
     function()return state.stretchMode end,function(value)restoreCamera("stretch");unsupportedCamera=nil;state.stretchMode=value;updateCamera()end,"stretchMode")
@@ -4991,31 +4992,30 @@ do
 local sections={"survival","killer","exclusive","esp","config"}
 local pages,tabButtons,buckets,scrollPositions={},{},{survival={},killer={},exclusive={},esp={},config={}},{ }
 local hints={
-    [182]="Нажимает в выбранной зоне скиллчека.",
-    [522]="Растягивает 3D-вид. Разрешение не меняет.",
-    [730]="Только доступные клиенту перки.",
-    [782]="Роли определяются по командам игроков.",
-    [1286]="Клавиша меню меняется в Config.",
-    [1552]="1 — точно на тебя. −1 — любое направление.",
-    [1852]="Сразу по доступной анимации атаки. Нужен даггер.",
-    [2024]="Без конфига функции выключены, бинды не заданы.",
-    [2242]="Параметр BreakSpeed + анимация. ×1 — без ускорения.",
-    [2482]="Бег в нокдауне; действия не разблокируются. Сервер может корректировать движение.",
-    [2576]="Только киллер. Скрывает известные эффекты Blind.",
-    [2670]="Локальный вид ноги R15.",
-    [2980]="Наведение только во время известной Hidden M2.",
-    [3438]="Импорт восстанавливает настройки и бинды из JSON.",
-    [4362]="Метры приблизительные. Объекты ищутся по именам.",
-    [5976]="Скрой меню и перетащи рамку.",
+    [182]="Automatically attempts perfect skill checks.",
+    [522]="Stretches the 3D view; screen resolution is unchanged.",
+    [782]="Player roles are based on teams.",
+    [1286]="Change the menu key in Settings.",
+    [1552]="1 faces you; -1 allows any direction.",
+    [1852]="Requires an equipped dagger and a known attack animation.",
+    [2024]="Features start disabled without a saved configuration.",
+    [2242]="BreakSpeed and animation multiplier; 1 is normal speed.",
+    [2482]="Movement while downed may be corrected by the server.",
+    [2576]="Killer only; hides known Blind effects.",
+    [2670]="Local R15 leg appearance.",
+    [2980]="Camera aim during the known Hidden M2 animation.",
+    [3438]="Imports settings and binds from JSON.",
+    [4362]="Distances are approximate; objects are identified by name.",
+    [5976]="Hide the menu and drag the frame.",
 }
 local shortLabels={
-    [230]="КАМЕРА",[302]="FOV: 40–120",[456]="Сила растяжения: 0.5–2",[616]="Радиус радара, студы",
-    [920]="ПРИЦЕЛ И МЕНЮ",[992]="Размер прицела",[1146]="Масштаб меню: 0.6–1.5",
-    [1340]="ДАГГЕР",[1412]="Расстояние до убийцы: 2–25 студов",[1482]="Направление взгляда убийцы: −1…1",
-    [1782]="Пауза между попытками: 0.2–5 с",
-    [2090]="ПАЛЕТЫ",[2162]="Множитель анимации: 1–10",
-    [2312]="Доп. ID разрушения палет",[2410]="АБИЛКИ",[2726]="HIDDEN M2",[2798]="FOV: 35–400 пикселей",
-    [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
+    [230]="CAMERA",[302]="FOV: 40–120",[456]="Stretch: 0.5–2",[616]="Radar radius, studs",
+    [920]="SCREEN AND MENU",[992]="Crosshair size",[1146]="Menu scale: 0.6–1.5",
+    [1340]="DAGGER",[1412]="Parry distance: 2–25 studs",[1482]="Killer facing: -1 to 1",
+    [1782]="Cooldown: 0.2–5 seconds",
+    [2090]="PALLETS",[2162]="Animation multiplier: 1–10",
+    [2312]="Additional pallet animation IDs",[2410]="CHEAT MODE",[2726]="HIDDEN M2",[2798]="FOV: 35–400 pixels",
+    [2868]="Aim speed: 1–40",[3154]="CONFIG",[4286]="ESP range: 10–1500 m",
 }
 local function route(y)
     if y>=9300 and y<9700 then return "survival"end
@@ -5106,15 +5106,15 @@ local function groupFor(section,y)
         if y>=920 then return "screenHud","Screen",4 end
         return "worldEsp","Objects",3
     end
-    if y==5882 then return "diagnostics","Диагностика",8 end
-    if y>=9700 then return "utilities","Утилиты",9 end
-    if y>=9300 then return "emotes","Эмоции",7 end
-    if y>=5890 and y<6000 then return "hudLayout","Виджеты",4 end
-    if(y>=3154 and y<=3555)or(y>=5078 and y<=5204)then return "profiles","Конфиг",3 end
-    if y==3496 or y==5036 then return "binds","Клавиши",2 end
-    if y>=2628 and y<=2670 then return "cosmetic","Персонаж",5 end
-    if y==1980 or y==2024 or y==3560 then return "actions","Управление",6 end
-    return "appearance","Оформление",1
+    if y==5882 then return "diagnostics","Diagnostics",8 end
+    if y>=9700 then return "utilities","Utilities",9 end
+    if y>=9300 then return "emotes","Emotes",7 end
+    if y>=5890 and y<6000 then return "hudLayout","Widgets",4 end
+    if(y>=3154 and y<=3555)or(y>=5078 and y<=5204)then return "profiles","Config",3 end
+    if y==3496 or y==5036 then return "binds","Keybinds",2 end
+    if y>=2628 and y<=2670 then return "cosmetic","Character",5 end
+    if y==1980 or y==2024 or y==3560 then return "actions","Controls",6 end
+    return "appearance","Appearance",1
 end
 for _,name in ipairs(sections)do
     local page=Instance.new("Frame");page.Name="Section_"..name
