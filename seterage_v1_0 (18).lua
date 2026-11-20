@@ -2348,7 +2348,7 @@ local profiles = {
 local candidates, objectMarks, playerMarks = {}, {}, {}
 local addedConnection, removedConnection
 local function hasObjectEsp()
-    return true
+    return state.espAllObjects or state.espGenerators or state.espPumpkins or state.espWindows or state.espPallets or state.espHooks
 end
 local CollectionService
 pcall(function()CollectionService=game:GetService("CollectionService")end)
@@ -2550,7 +2550,7 @@ state.getIndexedObjects=function()
     local result={};for item,kind in pairs(candidates)do if item.Parent then result[#result+1]={item=item,kind=kind,part=anchor(item)}end end;return result
 end
 state.windowEspDiagnostics=function()
-    local details={enabled=true,allObjects=true,range=state.espRange,indexPending=state.perf.indexPending,
+    local details={enabled=state.espWindows,allObjects=state.espAllObjects,range=state.espRange,indexPending=state.perf.indexPending,
         seen=windowObservations,recognised=0,withAnchor=0,marked=0,samples={}}
     local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     for item,kind in pairs(candidates)do if kind=="windows"and item.Parent then
@@ -2627,6 +2627,12 @@ local function showMark(mark,name,distance,kind,object)
     mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
 end
 label("ОБЪЕКТЫ НА КАРТЕ",4000,24)
+toggle("espAllObjects","All Recognised Objects",4033)
+toggle("espGenerators","Generator ESP",4034)
+toggle("espPumpkins","Pumpkin ESP",4076)
+toggle("espWindows","Window ESP",4118)
+toggle("espPallets","Pallet ESP",4160)
+toggle("espHooks","Hook ESP",4180)
 toggle("killerDistance","Killer ESP",4202)
 toggle("survivorDistance","Survivor ESP",4244)
 toggle("espGeneratorState","Generator State",4035.7)
@@ -2658,7 +2664,7 @@ local function updateWorldEsp()
     local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     local myHum=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
     local camera=Workspace.CurrentCamera
-    local origin=(root and myHum and myHum.Health>0 and root.Position)or(camera and camera.CFrame.Position)
+    local origin=(camera and camera.CFrame.Position)or(root and myHum and myHum.Health>0 and root.Position)
     local counts={generators=0,pumpkins=0,windows=0,pallets=0,hooks=0}
     local keep={}
     if anyObjects and origin then
@@ -2667,7 +2673,7 @@ local function updateWorldEsp()
                 candidates[item]=nil
             else
                 local profile=profiles[kind]
-                if profile then
+                if profile and (state.espAllObjects or state[profile.field])then
                     local part=anchor(item)
                     if part and part.Parent then
                         local distance=metres((part.Position-origin).Magnitude)
