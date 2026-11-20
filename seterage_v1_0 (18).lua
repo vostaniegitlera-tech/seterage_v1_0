@@ -603,7 +603,6 @@ local function toggle(field, text, y)
     toggleButtons[field] = {button = item, text = text}
     return item
 end
-toggle("esp", "Killer Highlight", 52)
 toggle("autoSkill", "Auto Generator", 96)
 label("Automatically attempts perfect skill checks.", 182, 40)
 
@@ -2481,6 +2480,9 @@ end
 local function watchObjects()
     if addedConnection then return end
     enqueue(Workspace)
+    -- Index the active map before traversing unrelated workspace content.
+    local map=Workspace:FindFirstChild("Map")
+    if map then enqueue(map)end
     addedConnection=Workspace.DescendantAdded:Connect(function(item)
         if ignored(item)then return end
         enqueue(item)
@@ -2505,7 +2507,7 @@ local function watchObjects()
 end
 local function processIndex()
     local processed,work,start=0,0,os.clock()
-    while(head<=tail or #childBatches>0)and work<96 and os.clock()-start<.001 do
+    while(head<=tail or #childBatches>0)and work<160 and os.clock()-start<.0025 do
         work=work+1
         local item
         if head<=tail then item=queue[head];queue[head]=nil;head=head+1
@@ -2548,7 +2550,7 @@ state.getIndexedObjects=function()
     local result={};for item,kind in pairs(candidates)do if item.Parent then result[#result+1]={item=item,kind=kind,part=anchor(item)}end end;return result
 end
 state.windowEspDiagnostics=function()
-    local details={enabled=state.espWindows,range=state.espRange,indexPending=state.perf.indexPending,
+    local details={enabled=state.espWindows,allObjects=state.espAllObjects,range=state.espRange,indexPending=state.perf.indexPending,
         seen=windowObservations,recognised=0,withAnchor=0,marked=0,samples={}}
     local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     for item,kind in pairs(candidates)do if kind=="windows"and item.Parent then
@@ -2638,7 +2640,7 @@ toggle("espPlayerState","Player State",4245.7)
 toggle("espLabelsBelow","Labels Below",4260)
 state.metricOptions={}
 for _,entry in ipairs({{"generators",4035.5},{"pumpkins",4077.5},{"windows",4119.5},{"pallets",4161.5},{"hooks",4181.5},
-    {"killerDistance",4203.5},{"survivorDistance",4245.5},{"killerHighlight",53.5}})do
+    {"killerDistance",4203.5},{"survivorDistance",4245.5}})do
     local id=entry[1]
     local b=button("Показывать метры",entry[2],function()
         state.espMeters[id]=not state.espMeters[id]
