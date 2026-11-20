@@ -63,7 +63,7 @@ local state = {
         parryFov=Color3.fromRGB(170,110,255),
     },
     menuBind = Enum.KeyCode.RightShift, autoLoad = true, autoSave = true,
-    uiWidth = 540, uiHeight = 560, sideWidth = 108, uiTextScale = 1, uiRadius = 10,
+    uiWidth = 900, uiHeight = 540, sideWidth = 128, uiTextScale = 1, uiRadius = 7,
     uiFont = "Gotham", uiTheme = "Graphite", showHints = true,
     uiAccentColor = Color3.fromRGB(139,92,246), menuX = 0.5, menuY = 0.5,
 
@@ -5078,7 +5078,7 @@ for _,name in ipairs({"Roboto","Oswald","FredokaOne","Nunito","TitilliumWeb","Co
     if ok and font then fontPairs[name]={font,font}end
 end
 local themes={
-    Graphite={panel=Color3.fromRGB(31,17,53),button=Color3.fromRGB(65,35,105),text=Color3.fromRGB(255,248,255),muted=Color3.fromRGB(213,191,238)},
+    Graphite={panel=Color3.fromRGB(16,15,29),button=Color3.fromRGB(28,27,47),text=Color3.fromRGB(242,240,255),muted=Color3.fromRGB(156,154,180)},
     Midnight={panel=Color3.fromRGB(12,17,29),button=Color3.fromRGB(24,33,50),text=Color3.fromRGB(232,239,251),muted=Color3.fromRGB(155,175,201)},
     Light={panel=Color3.fromRGB(236,240,246),button=Color3.fromRGB(215,223,234),text=Color3.fromRGB(28,38,54),muted=Color3.fromRGB(75,92,115)},
 }
@@ -5127,20 +5127,26 @@ for _,name in ipairs(sections)do
     table.sort(buckets[name],function(a,b)return a.y<b.y or(a.y==b.y and a.index<b.index)end)
     local map,list={},{}
     for _,entry in ipairs(buckets[name])do
-        rowSizes[entry.item]=entry.item.Size.Y.Offset;entry.item.Parent=page
+        rowSizes[entry.item]=entry.item.Size.Y.Offset
         local id,caption,order=groupFor(name,entry.y)
         if not map[id]then
+            local card=Instance.new("Frame");card.Name="Card_"..id;card.BorderSizePixel=0
+            card.BackgroundColor3=Color3.fromRGB(24,23,41);card.Parent=page
+            local cardCorner=Instance.new("UICorner");cardCorner.CornerRadius=UDim.new(0,7);cardCorner.Parent=card
+            local cardBorder=Instance.new("UIStroke");cardBorder.Color=Color3.fromRGB(61,58,83)
+            cardBorder.Transparency=.35;cardBorder.Thickness=1;cardBorder.Parent=card
             local header=Instance.new("TextButton");header.Name="Group_"..id
             header.Font=Enum.Font.GothamBold;header.TextSize=12;header.TextXAlignment=Enum.TextXAlignment.Left
-            header.TextColor3=Color3.fromRGB(225,228,240);header.Text="− "..caption;header.Parent=page
+            header.TextColor3=Color3.fromRGB(225,228,240);header.Text="− "..caption;header.Parent=card
             local outline=Instance.new("UIStroke");outline.Thickness=1;outline.Transparency=0.8;outline.Color=Color3.fromRGB(90,80,120);outline.Parent=header
-            local group={id=id,title=caption,order=order,header=header,entries={}}
+            local group={id=id,title=caption,order=order,header=header,card=card,entries={}}
             map[id]=group;list[#list+1]=group;state.groupIds[id]=true
             connect(header.Activated,function()
                 state.collapsedGroups[id]=not state.collapsedGroups[id]
                 state.applyStyle()
             end)
         end
+        entry.item.Parent=map[id].card
         map[id].entries[#map[id].entries+1]=entry
     end
     table.sort(list,function(a,b)return a.order<b.order end)
@@ -5164,27 +5170,36 @@ local function relayout()
     status.Position=UDim2.new(0,state.sideWidth+30,1,-38)
     status.Size=UDim2.new(1,-state.sideWidth-46,0,32)
     local width=state.uiWidth-state.sideWidth-48
+    local columns=width>=630 and 3 or(width>=410 and 2 or 1)
+    local gap=10
+    local columnWidth=math.floor((width-gap*(columns-1))/columns)
     for _,name in ipairs(sections)do
-        local y=8
+        local heights={};for i=1,columns do heights[i]=8 end
         for _,group in ipairs(groupsByPage[name])do
+            local column=1
+            for i=2,columns do if heights[i]<heights[column]then column=i end end
+            local y=0
             local closed=state.collapsedGroups[group.id]==true
             group.header.Text=(closed and "+ "or "− ")..group.title
-            group.header.Position=UDim2.fromOffset(14,y);group.header.Size=UDim2.new(1,-28,0,24)
-            y=y+32
+            group.header.Position=UDim2.fromOffset(6,4);group.header.Size=UDim2.new(1,-12,0,24)
+            y=32
             for _,entry in ipairs(group.entries)do
                 local item=entry.item
                 item.Visible=not closed and(not entry.hint or state.showHints)
                 if item.Visible then
                     local height=rowSizes[item]
-                    if item:IsA("TextLabel")then height=measuredHeight(item,width,item.Name=="ESPObjectInfo"and 50 or(entry.hint and 22 or 24))
-                    elseif item:IsA("TextButton")then height=measuredHeight(item,width-54,math.max(34,item.TextSize+16))end
-                    item.Position=UDim2.fromOffset(14,y);item.Size=UDim2.new(1,-28,0,height)
-                    y=y+height+6
+                    if item:IsA("TextLabel")then height=measuredHeight(item,columnWidth-16,item.Name=="ESPObjectInfo"and 50 or(entry.hint and 22 or 24))
+                    elseif item:IsA("TextButton")then height=measuredHeight(item,columnWidth-70,math.max(30,item.TextSize+14))end
+                    item.Position=UDim2.fromOffset(6,y);item.Size=UDim2.new(1,-12,0,height)
+                    y=y+height+4
                 end
             end
-            y=y+10
+            group.card.Position=UDim2.fromOffset(14+(column-1)*(columnWidth+gap),heights[column])
+            group.card.Size=UDim2.fromOffset(columnWidth,y+4)
+            heights[column]=heights[column]+y+gap+4
         end
-        pages[name].Size=UDim2.new(1,0,0,y+8)
+        local maxHeight=0;for i=1,columns do maxHeight=math.max(maxHeight,heights[i])end
+        pages[name].Size=UDim2.new(1,0,0,maxHeight+8)
     end
     content.CanvasSize=UDim2.fromOffset(0,pages[current].Size.Y.Offset)
     fit()
