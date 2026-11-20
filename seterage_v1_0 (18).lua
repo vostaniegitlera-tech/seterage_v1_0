@@ -528,7 +528,7 @@ end
 state.skillTargetAllowed=function(check,goal,relative)
     local linear=linearZoneHit(check,state.skillMode);if linear~=nil then state.skillZoneSource="linear GUI geometry";return linear end
     local first,last=skillRange(check,goal,state.skillMode)
-    if not first then return false,"Normal: зона не распознана. Скопируй диагностику в Config."end
+    if not first then return false,"Normal: zone not recognised. Copy diagnostics in Settings."end
     if not angleInside(relative,first,last)then return false end
     if state.skillMode=="Normal"then
         local whiteStart,whiteEnd=skillRange(check,goal,"Perfect")
@@ -653,7 +653,7 @@ local function updateCamera()
         if not nativeOk then unsupportedCamera=cam;unsupportedUntil=os.clock()+2 end
     end
     if nativeOk then state.cameraAdapter="Native";return end
-    if state.stretchMode=="Native"then state.cameraAdapter="Unsupported";status.Text="Нативный растяг недоступен. Выбери «Матрица».";return end
+    if state.stretchMode=="Native"then state.cameraAdapter="Unsupported";status.Text="Native stretch unavailable. Select Matrix.";return end
     if saved.mode==nil then saved.mode=cam.FieldOfViewMode end
     pcall(function()if saved.stretch~=nil then cam.ViewStretch=saved.stretch end end)
     cam.FieldOfViewMode=Enum.FieldOfViewMode.Vertical
@@ -668,7 +668,7 @@ local function updateCamera()
         saved.base=base;saved.matrix=cam.CFrame
     end)
     state.cameraAdapter=ok and "Matrix"or "Unsupported"
-    if not ok then restoreCamera("stretch");status.Text="Растяг недоступен в этом клиенте."end
+    if not ok then restoreCamera("stretch");status.Text="Stretch unavailable in this client."end
 end
 state.updateCamera=updateCamera
 RunService:BindToRenderStep("VDHelperCameraPrepare",Enum.RenderPriority.Camera.Value-1,function()
@@ -756,8 +756,8 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     unsupportedCamera = nil
     updateCamera()
 end)
-label("Пресеты имитируют растянутые 4:3 и 16:10.\nИнтерфейс и разрешение экрана не меняются.", 522, 38)
-label("Подсветка ищет команду Killer/Killers.\nАвто скиллчеки требуют проверки в игре.", 782, 60)
+label("Presets simulate stretched 4:3 and 16:10.\nUI and screen resolution are unchanged.", 522, 38)
+label("Highlight detects the Killer team.\nAuto skill checks require in-game testing.", 782, 60)
 
 local function overlay(name, width, height, position, anchor)
     local frame = Instance.new("Frame")
@@ -825,7 +825,7 @@ local function equippedPerks(who)
         if root then
             for attribute, value in pairs(root:GetAttributes()) do
                 if attribute:match("^EquippedPerk%d+$") or attribute:match("^Perk[1-4]$") then
-                    add(value, "атрибут " .. attribute)
+                    add(value, "attribute " .. attribute)
                 elseif attribute == "EquippedPerks" and type(value) == "string" then
                     local ok,decoded=pcall(function()return game:GetService("HttpService"):JSONDecode(value)end)
                     if ok and type(decoded)=="table"then
@@ -835,7 +835,7 @@ local function equippedPerks(who)
                             elseif type(entry)=="table"then add(entry.name or entry.Name or entry.perk or entry.PerkName,"EquippedPerks")end
                         end
                         if #entries==before then add(value,"EquippedPerks")end
-                    else add(value, "атрибут EquippedPerks")end
+                    else add(value, "EquippedPerks attribute")end
                 end
             end
             local roots = {root}
@@ -905,12 +905,12 @@ updateOverlays = function()
                 if ok and type(perks)=="table"then
                     for _,perk in ipairs(perks)do
                         if type(perk)=="table" and type(perk.name)=="string" and perk.name~="" then
-                            names[#names+1]=perk.name..(type(perk.level)=="number" and (" · ур. "..perk.level) or "")
+                            names[#names+1]=perk.name..(type(perk.level)=="number" and (" · level "..perk.level) or "")
                         end
                     end
                 end
                 if #names>0 then
-                    resultRows[#resultRows+1]=tostring(entry:GetAttribute("Username") or entry.Name).." — результаты завершённого матча\n"..table.concat(names,"\n")
+                    resultRows[#resultRows+1]=tostring(entry:GetAttribute("Username") or entry.Name).." — completed match results\n"..table.concat(names,"\n")
                 end
             end
         end
@@ -920,7 +920,7 @@ updateOverlays = function()
             killerCount = killerCount + 1
             local values = equippedPerks(who)
             table.insert(rows, who.DisplayName .. " (@" .. who.Name .. ")")
-            table.insert(rows, #values > 0 and table.concat(values, "\n") or "Во время матча данные о перках недоступны.")
+            table.insert(rows, #values > 0 and table.concat(values, "\n") or "Perk data unavailable during the match.")
         end
     end
     for _,row in ipairs(resultRows)do rows[#rows+1]=row end
@@ -1087,9 +1087,9 @@ connect(RunService.RenderStepped, function(dt)
     frameCount, sampleTime = 0, 0
 end)
 
-label("ПРИЦЕЛ И ИНТЕРФЕЙС", 920, 24)
+label("SCREEN AND UI", 920, 24)
 toggle("stats", "FPS / Ping", 1104)
-label("Right Shift / VD — скрыть или показать меню.\nX скрывает меню. Выгрузка скрипта — в config.", 1286, 42)
+label("Right Shift / VD toggles the menu.\nX hides it. Unload the script in Settings.", 1286, 42)
 
 local attackIds = {
     ["105374834496520"] = true, -- Jacket lunge
@@ -1352,7 +1352,7 @@ state.setParry = function(enabled)
     status.Text = enabled and "Auto Parry ON." or "Auto Parry OFF."
     if state.applyStyle then state.applyStyle() end
 end
-label("АВТО ДАГГЕР / ПАРИРОВАНИЕ", 1340, 24)
+label("AUTO DAGGER / PARRY", 1340, 24)
 toggle("parry", "Auto Parry", 1370)
 toggle("antiFakeHit","Anti Fake Hit · test",1370.1)
 do
@@ -1399,10 +1399,10 @@ label("Parry Distance: 2–25 studs", 1412, 24)
 numberInput(1440, 12, 2, 25, function(v) state.parryRadius = v end)
 label("Killer facing direction: -1 to 1", 1482, 24)
 numberInput(1510, 0.7, -1, 1, function(v) state.faceSensitivity = v end)
-label("1 — смотрит точно на тебя; 0 — в твою сторону;\n−1 — срабатывает с любого направления.", 1552, 40)
+label("1 faces directly at you; 0 faces your direction;\n-1 accepts any direction.", 1552, 40)
 local waitingBind = false
 local bindButton
-bindButton = button("Бинд авто парирования: не назначен", 1600, function()
+bindButton = button("Auto Parry Bind: unbound", 1600, function()
     waitingBind = true
     state.capturingBind = "parry"
     bindButton.Text = "Press a key; Backspace clears; Esc cancels"
@@ -1431,7 +1431,7 @@ local function textSetting(y, initial, accept)
 end
 label("Cooldown: 0.2–5 seconds", 1782, 24)
 numberInput(1810, 0.2, 0.2, 5, function(v) state.parryCooldown = v end)
-label("Только известные анимации атак; не все убийцы.\nНужен экипированный даггер. Проверь ввод в игре.", 1852, 44)
+label("Only known attack animations are supported.\nEquip a dagger and test in game.", 1852, 44)
 local function disableAll()
     if state.resetSpikeVault then state.resetSpikeVault()end
     if state.resetJerkTool then state.resetJerkTool()end
@@ -1537,10 +1537,10 @@ local function adjustBreakTrack(track)
     local ok = pcall(function() track:AdjustSpeed(target) end)
     if ok then
         saved.applied = target
-        status.Text = "Fast Break Pallet: анимация ×" .. state.breakMultiplier
-            .. "; время разрушения на сервере не проверено."
+        status.Text = "Fast Break Pallet: animation ×" .. state.breakMultiplier
+            .. "; server break time is unverified."
     else
-        status.Text = "Fast Break Pallet: изменение анимации недоступно."
+        status.Text = "Fast Break Pallet: animation speed unavailable."
     end
 end
 local function updateFastBreak()
@@ -1578,21 +1578,21 @@ local function updateFastBreak()
     end
     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do adjustBreakTrack(track) end
 end
-label("КИЛЛЕР — РАЗРУШЕНИЕ ПАЛЕТ", 2090, 24)
+label("KILLER — PALLET BREAK", 2090, 24)
 toggle("fastBreak", "Fast Break Pallet", 2120)
 label("Speed: 1–10; ×1 is normal speed", 2162, 30)
 numberInput(2200, 3, 1, 10, function(v)
     state.breakMultiplier = v
     for track in pairs(breakTracks) do adjustBreakTrack(track) end
 end)
-label("Использует существующий параметр скорости и известные анимации. Серверный результат требует проверки.",2242,44)
+label("Uses the existing speed attribute and known animations. Server result is unverified.",2242,44)
 label("Additional pallet break animation IDs", 2312, 30)
 textSetting(2350, "", function(value)
     local selected = {["112166042383605"] = true}
     if not value:match("^%s*$") then
         for token in value:gmatch("[^,]+") do
             local id = token:match("^%s*(%d+)%s*$")
-            if not id then status.Text = "Нужны ID анимаций через запятую."; return end
+            if not id then status.Text = "Enter animation IDs separated by commas."; return end
             selected[id] = true
         end
     end
@@ -1825,12 +1825,12 @@ connect(RunService.Heartbeat,function(dt)
     refreshExtensions()
 end)
 connect(RunService.Heartbeat,function()pcall(updateKnock)end)
-label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
+label("LOCAL EFFECTS",2410,24)
 toggle("antiKnock","God Mode",2440)
 toggle("fastVault","Fast Vault · test",2490)
 toggle("spikeVault","Spike Vault · test",2493)
 toggle("abyssAutoCrouch","Auto Crouch Abysswalker M2 · test",2493.5)
-label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
+label("Experimental sprint and movement during vaults.",2494,36)
 toggle("vaultSpeedEnabled","Vault Speed",2495)
 label("Vault Speed: 1–20",2496,24)
 numberInput(2497,1,1,20,function(v)state.vaultSpeedValue=v;if state.updateVaultSpeed then state.updateVaultSpeed()end end)
@@ -1886,9 +1886,9 @@ connect(RunService.Heartbeat,function(dt)
     if state.alive and state.spikeVault then installSpikeVault()elseif installed then state.resetSpikeVault()end
 end)
 end
-label("Движение в нокдауне. Предметы, ремонт и перелаз не разблокируются.",2482,44)
+label("Movement while downed; items, repair and vaulting remain restricted.",2482,44)
 toggle("antiBlind","Anti Blind",2534)
-label("Скрывает эффекты с именем Blind.\nЕсли VD использует другие имена, потребуется адаптация.",2576,44)
+label("Hides effects named Blind.\nOther effect names require adaptation.",2576,44)
 label("HIDDEN M2 AIM LOCK",2726,24)
 toggle("hiddenAim","Hidden M2 Aim Lock",2756)
 toggle("showHiddenFov","Show M2 FOV",2757)
@@ -1897,7 +1897,7 @@ label("FOV radius: 35–400 pixels",2798,24)
 numberInput(2826,150,35,400,function(v)state.hiddenFov=v;refreshExtensions()end)
 label("Aim speed: 1–40",2868,24)
 numberInput(2896,18,1,40,function(v)state.hiddenStrength=v end)
-hiddenBindButton=button("Бинд Hidden M2 Aim Lock: не назначен",2938,function()
+hiddenBindButton=button("Hidden M2 Aim Lock Bind: unbound",2938,function()
     if waitingBind then waitingBind=false;bindButton.Text="Auto Parry Bind: "..bindLabel(state.parryBind) end
     state.capturingBind="hidden"
     hiddenBindButton.Text="Press a key; Backspace clears; Esc cancels"
@@ -1914,7 +1914,7 @@ connect(Input.InputBegan,function(input,processed)
             and input.KeyCode~=state.menuBind and input.KeyCode~=state.moonForwardBind and input.KeyCode~=state.moonBackwardBind and input.KeyCode~=state.parryBind
             and input.KeyCode.Name~=state.parryInput then
             state.hiddenBind=input.KeyCode;state.capturingBind=nil
-        else status.Text="Эта клавиша занята. Выбери другую." end
+        else status.Text="This key is already in use. Choose another." end
         refreshExtensions();return
     end
     if not processed and state.hiddenBind~=Enum.KeyCode.Unknown and input.KeyCode==state.hiddenBind then
@@ -1922,7 +1922,7 @@ connect(Input.InputBegan,function(input,processed)
         if state.applyStyle then state.applyStyle() end
     end
 end)
-label("Управляет камерой только во время известной M2-анимации.\nДругие способности и обычные атаки не включают наведение.",2980,44)
+label("Controls the camera during the known M2 animation.\nOther abilities and attacks do not activate aim.",2980,44)
 toggle("veilSpearAim","Veil Spear Silent Aim · test",2981)
 label("Spear FOV: 50–499 pixels",2982,24)
 numberInput(2983,150,50,499,function(v)state.veilSpearFov=v end)
@@ -2031,8 +2031,8 @@ connect(RunService.RenderStepped,function()
     end
 end)
 end
-label("ПОКА НЕТ ПОДТВЕРЖДЁННОЙ РЕАЛИЗАЦИИ",3036,32)
-label("No Slowdown и Silent Aim Twist of Fate требуют данных игры.\nОбычная скорость WalkSpeed не фиксируется.\nНастройки-заглушки для этих функций не добавлены.",3076,66)
+label("IMPLEMENTATION UNCONFIRMED",3036,32)
+label("No Slowdown and Twist of Fate Silent Aim require game data.\nNormal WalkSpeed is not locked.\nPlaceholder settings have not been added.",3076,66)
 
 -- JSON import/export: declarative values only; no Lua or external code execution.
 local schemaNumbers={
@@ -2083,34 +2083,34 @@ local function exportConfig()
 end
 local function finite(v)return type(v)=="number" and v==v and math.abs(v)<math.huge end
 local function checkedKey(name,allowUnset)
-    if type(name)~="string" then error("Имя клавиши должно быть строкой")end
+    if type(name)~="string" then error("Key name must be a string")end
     if allowUnset and (name=="Unknown"or name=="None"or name=="")then return Enum.KeyCode.Unknown end
     local ok,code=pcall(function()return Enum.KeyCode[name]end)
     if not ok or not code or code==Enum.KeyCode.Unknown or code==Enum.KeyCode.Space
         or code==Enum.KeyCode.LeftShift or code==Enum.KeyCode.Backspace or code==Enum.KeyCode.Escape
-        then error("Недопустимый бинд: "..name)end
+        then error("Invalid keybind: "..name)end
     return code
 end
 local function checkedIds(value)
-    if type(value)~="table" or #value>128 then error("Неверный список ID")end
+    if type(value)~="table" or #value>128 then error("Invalid ID list")end
     local result={}
     for k,id in pairs(value)do
         if type(k)~="number" or k<1 or k>#value or k%1~=0 or type(id)~="string"
-            or #id>20 or not id:match("^%d+$")then error("Неверный ID анимации")end
+            or #id>20 or not id:match("^%d+$")then error("Invalid animation ID")end
         result[id]=true
     end
     return result
 end
 local function validateConfig(text)
-    if type(text)~="string" or #text>65536 then error("Конфиг слишком большой")end
+    if type(text)~="string" or #text>65536 then error("Config is too large")end
     local decoded=Http:JSONDecode(text)
     if type(decoded)~="table" or decoded.schema~="VD_HELPER_CONFIG" or decoded.version~=1
-        or type(decoded.settings)~="table"then error("Неизвестный формат конфига")end
+        or type(decoded.settings)~="table"then error("Unknown config format")end
     local source=decoded.settings
     local values={}
     for field in pairs(toggleButtons)do
         if source[field]~=nil then
-            if type(source[field])~="boolean"then error("Нужен true/false: "..field)end
+            if type(source[field])~="boolean"then error("Expected true/false: "..field)end
             values[field]=source[field]
         else values[field]=state[field] end
     end
@@ -2118,35 +2118,35 @@ local function validateConfig(text)
     for field,bounds in pairs(schemaNumbers)do
         local v=source[field]
         if v==nil then v=state[field]end
-        if not finite(v)or v<bounds[1]or v>bounds[2]then error("Число вне диапазона: "..field)end
+        if not finite(v)or v<bounds[1]or v>bounds[2]then error("Number out of range: "..field)end
         values[field]=v
     end
     for _,field in ipairs({"aspect","parryBind","hiddenBind","parryInput","menuBind","uiFont","uiTheme","moonForwardBind","moonBackwardBind","emoteId","trapMode","backgroundImage","emoteName","emoteBind","selfHealBind"})do
-        if source[field]~=nil and type(source[field])~="string"then error("Нужна строка: "..field)end
+        if source[field]~=nil and type(source[field])~="string"then error("Expected string: "..field)end
     end
     values.backgroundImage=source.backgroundImage or state.backgroundImage
-    if #values.backgroundImage>240 or(values.backgroundImage~=""and not values.backgroundImage:match("^%d+$")and not values.backgroundImage:match("^rbxassetid://%d+$")and not values.backgroundImage:match("^local:[%w _%./%-]+$"))then error("Неверный фон")end
-    if values.backgroundImage:sub(1,6)=="local:"and(values.backgroundImage:find("..",7,true)or values.backgroundImage:sub(7,7)=="/")then error("Неверный путь фона")end
+    if #values.backgroundImage>240 or(values.backgroundImage~=""and not values.backgroundImage:match("^%d+$")and not values.backgroundImage:match("^rbxassetid://%d+$")and not values.backgroundImage:match("^local:[%w _%./%-]+$"))then error("Invalid background")end
+    if values.backgroundImage:sub(1,6)=="local:"and(values.backgroundImage:find("..",7,true)or values.backgroundImage:sub(7,7)=="/")then error("Invalid background path")end
     values.shaderPreset=source.shaderPreset or "Soft"
     if not ({Soft=true,Cinema=true,Cold=true,Warm=true,Noir=true,Vibrant=true,Night=true,Clear=true,Neon=true,Sunset=true,Realistic=true})[values.shaderPreset]then error("Unknown shader")end
     values.stretchMode=source.stretchMode or "Auto"
-    if not ({Auto=true,Native=true,Matrix=true})[values.stretchMode]then error("Неизвестный растяг")end
+    if not ({Auto=true,Native=true,Matrix=true})[values.stretchMode]then error("Unknown stretch mode")end
     values.aspect=source.aspect or state.aspect
-    if values.aspect~="custom"and values.aspect~="4:3"and values.aspect~="16:10"then error("Неверный формат экрана")end
+    if values.aspect~="custom"and values.aspect~="4:3"and values.aspect~="16:10"then error("Invalid aspect ratio")end
     values.menuBind=checkedKey(source.menuBind or state.menuBind.Name,true)
     for _,field in ipairs({"autoLoad","autoSave","showHints"})do
         local v=source[field];if v==nil then v=state[field]end
-        if type(v)~="boolean"then error("Нужен true/false: "..field)end
+        if type(v)~="boolean"then error("Expected true/false: "..field)end
         values[field]=v
     end
     values.uiFont=source.uiFont or state.uiFont
-    if not ({Gotham=true,SourceSans=true,Ubuntu=true,RobotoMono=true,Arial=true,Roboto=true,Oswald=true,FredokaOne=true,Nunito=true,TitilliumWeb=true,Code=true,Cartoon=true})[values.uiFont]then error("Неизвестный шрифт")end
+    if not ({Gotham=true,SourceSans=true,Ubuntu=true,RobotoMono=true,Arial=true,Roboto=true,Oswald=true,FredokaOne=true,Nunito=true,TitilliumWeb=true,Code=true,Cartoon=true})[values.uiFont]then error("Unknown font")end
     values.uiTheme=source.uiTheme or state.uiTheme
-    if not ({Graphite=true,Midnight=true,Light=true})[values.uiTheme]then error("Неизвестная тема")end
+    if not ({Graphite=true,Midnight=true,Light=true})[values.uiTheme]then error("Unknown theme")end
     local accent=source.uiAccentColor
     if accent~=nil then
-        if type(accent)~="table"or #accent~=3 then error("Неверный акцент")end
-        for i=1,3 do if not finite(accent[i])or accent[i]<0 or accent[i]>1 then error("Неверный акцент")end end
+        if type(accent)~="table"or #accent~=3 then error("Invalid accent color")end
+        for i=1,3 do if not finite(accent[i])or accent[i]<0 or accent[i]>1 then error("Invalid accent color")end end
         values.uiAccentColor=Color3.new(accent[1],accent[2],accent[3])
     else values.uiAccentColor=state.uiAccentColor end
     values.parryBind=checkedKey(source.parryBind or state.parryBind.Name,true)
@@ -2155,79 +2155,79 @@ local function validateConfig(text)
     if values.parryInput~="MouseButton2"then checkedKey(values.parryInput)end
     if (values.parryBind~=Enum.KeyCode.Unknown and values.parryBind==values.hiddenBind)
         or values.parryInput==values.parryBind.Name
-        or values.parryInput==values.hiddenBind.Name then error("Конфликт клавиш")end
+        or values.parryInput==values.hiddenBind.Name then error("Key conflict")end
     if values.menuBind~=Enum.KeyCode.Unknown and (values.menuBind==values.parryBind
-        or values.menuBind==values.hiddenBind or values.menuBind.Name==values.parryInput)then error("Клавиша меню уже занята")end
+        or values.menuBind==values.hiddenBind or values.menuBind.Name==values.parryInput)then error("Menu key is already in use")end
     if source.crossColor~=nil then
         local c=source.crossColor
-        if type(c)~="table"or #c~=3 then error("Неверный цвет")end
-        for i=1,3 do if not finite(c[i])or c[i]<0 or c[i]>1 then error("Неверный цвет")end end
+        if type(c)~="table"or #c~=3 then error("Invalid color")end
+        for i=1,3 do if not finite(c[i])or c[i]<0 or c[i]>1 then error("Invalid color")end end
         values.crossColor=Color3.new(c[1],c[2],c[3])
     else values.crossColor=state.crossColor end
-    if source.skillMode~=nil and type(source.skillMode)~="string"then error("Неверный режим скиллчека")end
+    if source.skillMode~=nil and type(source.skillMode)~="string"then error("Invalid skill check mode")end
     values.trapMode=source.trapMode or state.trapMode
-    if values.trapMode~="Normal"and values.trapMode~="Perfect"then error("Неверный режим bear trap")end
+    if values.trapMode~="Normal"and values.trapMode~="Perfect"then error("Invalid bear trap mode")end
     for _,field in ipairs({"emoteLoop"})do
         local value=source[field];if value==nil then value=state[field]end
-        if type(value)~="boolean"then error("Неверное значение: "..field)end
+        if type(value)~="boolean"then error("Invalid value: "..field)end
         values[field]=value
     end
     values.emoteId=source.emoteId or state.emoteId
-    if type(values.emoteId)~="string"or #values.emoteId>20 or not values.emoteId:match("^%d+$")then error("Неверный ID эмоции")end
+    if type(values.emoteId)~="string"or #values.emoteId>20 or not values.emoteId:match("^%d+$")then error("Invalid emote ID")end
     values.emoteName=source.emoteName or state.emoteName
-    if #values.emoteName>100 or values.emoteName:find("[%z\1-\31]")then error("Неверная эмоция")end
+    if #values.emoteName>100 or values.emoteName:find("[%z\1-\31]")then error("Invalid emote")end
     values.emoteBind=checkedKey(source.emoteBind or state.emoteBind.Name,true)
     values.selfHealBind=checkedKey(source.selfHealBind or state.selfHealBind.Name,true)
     values.moonForwardBind=checkedKey(source.moonForwardBind or state.moonForwardBind.Name,true)
     values.moonBackwardBind=checkedKey(source.moonBackwardBind or state.moonBackwardBind.Name,true)
-    if values.moonForward and values.moonBackward then error("Moonwalk: выбери одно направление")end
+    if values.moonForward and values.moonBackward then error("Moonwalk: select one direction")end
     local assigned={}
     for _,code in ipairs({values.menuBind,values.parryBind,values.hiddenBind,values.moonForwardBind,values.moonBackwardBind,values.emoteBind,values.selfHealBind})do
         if code~=Enum.KeyCode.Unknown then
-            if assigned[code]or code.Name==values.parryInput then error("Конфликт биндов")end
+            if assigned[code]or code.Name==values.parryInput then error("Keybind conflict")end
             assigned[code]=true
         end
     end
     values.skillMode=source.skillMode or state.skillMode
-    if values.skillMode~="Normal"and values.skillMode~="Perfect"then error("Неверный режим скиллчека")end
+    if values.skillMode~="Normal"and values.skillMode~="Perfect"then error("Invalid skill check mode")end
     values.espMeters={}
-    if source.espMeters~=nil and type(source.espMeters)~="table"then error("Неверная метровка")end
+    if source.espMeters~=nil and type(source.espMeters)~="table"then error("Invalid distance setting")end
     for id,current in pairs(state.espMeters)do
         local value=source.espMeters and source.espMeters[id]
         if value==nil then value=current end
-        if type(value)~="boolean"then error("Неверная метровка: "..id)end
+        if type(value)~="boolean"then error("Invalid distance setting: "..id)end
         values.espMeters[id]=value
     end
     values.soundOwnOnly=source.soundOwnOnly
     if values.soundOwnOnly==nil then values.soundOwnOnly=state.soundOwnOnly end
-    if type(values.soundOwnOnly)~="boolean"then error("Неверный фильтр звуков")end
+    if type(values.soundOwnOnly)~="boolean"then error("Invalid sound filter")end
     values.customSounds={}
-    if source.customSounds~=nil and type(source.customSounds)~="table"then error("Неверные звуки")end
+    if source.customSounds~=nil and type(source.customSounds)~="table"then error("Invalid sounds")end
     for id,current in pairs(state.customSounds)do
         local sound=type(source.customSounds)=="table"and source.customSounds[id]or nil
         if sound~=nil then
             if type(sound)~="table"or type(sound.id)~="string"or #sound.id>20
-                or(sound.id~=""and not sound.id:match("^%d+$"))or(sound.sources~=nil and type(sound.sources)~="table")or not finite(sound.volume)or sound.volume<0 or sound.volume>2 then error("Неверный звук: "..id)end
-            if sound.mode~=nil and type(sound.mode)~="string"then error("Неверный режим звука")end
+                or(sound.id~=""and not sound.id:match("^%d+$"))or(sound.sources~=nil and type(sound.sources)~="table")or not finite(sound.volume)or sound.volume<0 or sound.volume>2 then error("Invalid sound: "..id)end
+            if sound.mode~=nil and type(sound.mode)~="string"then error("Invalid sound mode")end
             local mode=sound.mode or(current.mode or "BuiltIn")
             if mode=="System"then mode="BuiltIn"elseif mode=="Both"then mode="Custom"end
-            if mode~="BuiltIn"and mode~="Custom"then error("Неверный режим звука")end
+            if mode~="BuiltIn"and mode~="Custom"then error("Invalid sound mode")end
             local preset=sound.preset or "Ping"
-            if not ({Ping=true,High=true,Low=true,Snap=true,SnapHigh=true,Bass=true,BassLow=true,Splash=true,SplashHigh=true})[preset]then error("Неверный встроенный звук")end
+            if not ({Ping=true,High=true,Low=true,Snap=true,SnapHigh=true,Bass=true,BassLow=true,Splash=true,SplashHigh=true})[preset]then error("Invalid built-in sound")end
             values.customSounds[id]={id=sound.id,volume=sound.volume,sources=checkedIds(sound.sources or {}),mode="BuiltIn",preset=preset}
         else values.customSounds[id]=current end
     end
     values.collapsedGroups={}
-    if source.collapsedGroups~=nil and type(source.collapsedGroups)~="table"then error("Неверные группы")end
+    if source.collapsedGroups~=nil and type(source.collapsedGroups)~="table"then error("Invalid groups")end
     local groups=source.collapsedGroups or state.collapsedGroups
-    if type(groups)~="table"then error("Неверные группы")end
+    if type(groups)~="table"then error("Invalid groups")end
     for id,closed in pairs(groups)do
         local legacyAudio={audioSources=true,misfireAudio=true,shotAudio=true,daggerAudio=true}
         local key=legacyAudio[id]and "customAudio"or((id=="bearTrap"or id=="skillCalibration")and "skillchecks"
             or(id=="playerEsp"and "worldEsp"or((id=="sprint"or id=="survivalTools")and "survivorProtection"or(id=="moonwalk"and "customAudio"or id))))
-        if type(closed)~="boolean"then error("Неверная группа")end
+        if type(closed)~="boolean"then error("Invalid group")end
         if key~="cosmetic"and key~="hudLayout"then
-            if not state.groupIds or not state.groupIds[key]then error("Неверная группа")end
+            if not state.groupIds or not state.groupIds[key]then error("Invalid group")end
             values.collapsedGroups[key]=values.collapsedGroups[key]or closed
         end
     end
@@ -2235,20 +2235,20 @@ local function validateConfig(text)
     for id,current in pairs(state.espColors)do
         local c=type(source.espColors)=="table"and source.espColors[id]or nil
         if c~=nil then
-            if type(c)~="table"or #c~=3 then error("Неверный цвет ESP: "..id)end
-            for i=1,3 do if not finite(c[i])or c[i]<0 or c[i]>1 then error("Неверный цвет ESP: "..id)end end
+            if type(c)~="table"or #c~=3 then error("Invalid ESP color: "..id)end
+            for i=1,3 do if not finite(c[i])or c[i]<0 or c[i]>1 then error("Invalid ESP color: "..id)end end
             values.espColors[id]=Color3.new(c[1],c[2],c[3])
         else values.espColors[id]=current end
     end
-    if source.espColors~=nil and type(source.espColors)~="table"then error("Неверные цвета ESP")end
+    if source.espColors~=nil and type(source.espColors)~="table"then error("Invalid ESP colors")end
     values.widgetPositions={}
-    if source.widgetPositions~=nil and type(source.widgetPositions)~="table"then error("Неверные позиции виджетов")end
+    if source.widgetPositions~=nil and type(source.widgetPositions)~="table"then error("Invalid widget positions")end
     local positions=source.widgetPositions or state.widgetPositions
-    if type(positions)~="table"then error("Неверные позиции виджетов")end
+    if type(positions)~="table"then error("Invalid widget positions")end
     local allowedWidgets={performance=true,perks=true,crosshair=true,hiddenFov=true,menuButton=true,parryButton=true,panicButton=true,nextRoundHud=true}
     for id,position in pairs(positions)do
-        if not allowedWidgets[id]or type(position)~="table"or #position~=2 then error("Неверная позиция виджета")end
-        for i=1,2 do if not finite(position[i])or position[i]<0 or position[i]>1 then error("Виджет вне экрана")end end
+        if not allowedWidgets[id]or type(position)~="table"or #position~=2 then error("Invalid widget position")end
+        for i=1,2 do if not finite(position[i])or position[i]<0 or position[i]>1 then error("Widget is off screen")end end
         if id~="panicButton"then values.widgetPositions[id]={position[1],position[2]}end
     end
     -- Menu dimensions are now controlled only by corner dragging.
@@ -2310,26 +2310,26 @@ configBox.Font=Enum.Font.Code;configBox.TextSize=11
 configBox.MultiLine=true;configBox.ClearTextOnFocus=false
 configBox.TextWrapped=true;configBox.TextXAlignment=Enum.TextXAlignment.Left
 configBox.TextYAlignment=Enum.TextYAlignment.Top
-configBox.PlaceholderText="Вставь JSON сюда для Import config"
+configBox.PlaceholderText="Paste JSON here to import config"
 configBox.Text="";configBox.Parent=content
 button("Export config",3312,function()
     local ok,text=pcall(exportConfig)
-    if ok then configBox.Text=text;status.Text="Конфиг выведен в поле. Можно скопировать."
-    else status.Text="Экспорт не удался: "..tostring(text)end
+    if ok then configBox.Text=text;status.Text="Config is ready to copy."
+    else status.Text="Export failed: "..tostring(text)end
 end)
 button("Copy Config",3354,function()
     local ok,text=pcall(exportConfig)
-    if not ok then status.Text="Не удалось сформировать конфиг.";return end
+    if not ok then status.Text="Could not create config.";return end
     configBox.Text=text
     local copier=type(setclipboard)=="function"and setclipboard or (type(toclipboard)=="function"and toclipboard)
-    if copier and pcall(copier,text)then status.Text="Конфиг скопирован."
-    else configBox:CaptureFocus();status.Text="Скопируй JSON из поля вручную."end
+    if copier and pcall(copier,text)then status.Text="Config copied."
+    else configBox:CaptureFocus();status.Text="Copy the JSON from the field manually."end
 end)
 button("Import config",3396,function()
     local ok,reason=applyConfig(configBox.Text)
-    status.Text=ok and "Конфиг применён."or "Конфиг отклонён: "..tostring(reason)
+    status.Text=ok and "Config applied."or "Config rejected: "..tostring(reason)
 end)
-label("Импортируются только проверенные настройки JSON.\nФункции после импорта включаются по сохранённым значениям.",3438,44)
+label("Only validated JSON settings are imported.\nFeatures restore their saved values.",3438,44)
 content.CanvasSize=UDim2.fromOffset(0,3544)
 refreshExtensions()
 end
@@ -2624,7 +2624,7 @@ local function showMark(mark,name,distance,kind,object)
         local vertical=offset.Y+(halfHeight+.15)*(state.espLabelsBelow and -1 or 1)
         mark.labelGui.StudsOffsetWorldSpace=Vector3.new(offset.X,math.clamp(vertical,-3,3),offset.Z)
     end
-    mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
+    mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." m")or "")
 end
 label("MAP OBJECTS",4000,24)
 toggle("espGenerators","Generator ESP",4034)
@@ -2650,7 +2650,7 @@ for _,entry in ipairs({{"generators",4035.5},{"pumpkins",4077.5},{"windows",4119
 end
 label("ESP range: 10–1500 m",4286,26)
 numberInput(4320,500,10,1500,function(v)state.espRange=v end)
-label("Метры приблизительные: 1 студ = 0.28 м.\nОбъекты определяются по именам в загруженной карте.",4362,44)
+label("Meters are approximate: 1 stud = 0.28 m.\nObjects are identified by name on the loaded map.",4362,44)
 local objectInfo=label("Object ESP disabled.",4416,50)
 objectInfo.Name="ESPObjectInfo"
 local function updateWorldEsp()
@@ -2700,16 +2700,16 @@ local function updateWorldEsp()
                                 end
                                 if type(progress)=="number"and progress==progress and progress>=0 and progress<=100 then
                                     title=title.." · "..string.format("%.1f%%",progress)
-                                else title=title.." · прогресс: —"end
+                                else title=title.." · progress: —"end
                                 if state.espGeneratorState then
                                     local broken=item:GetAttribute("Broken")
                                     if type(broken)~="boolean"then broken=item:GetAttribute("IsBroken")end
                                     local regressing=item:GetAttribute("Regressing")
-                                    if broken==true then title=title.." · сломан"
-                                    elseif broken==false then title=title.." · цел"
-                                    elseif regressing==true then title=title.." · регресс"
-                                    elseif regressing==false then title=title.." · без регресса"
-                                    else title=title.." · состояние: —"end
+                                    if broken==true then title=title.." · broken"
+                                    elseif broken==false then title=title.." · intact"
+                                    elseif regressing==true then title=title.." · regressing"
+                                    elseif regressing==false then title=title.." · not regressing"
+                                    else title=title.." · state: —"end
                                 end
                             end
                             showMark(mark,title,distance,kind,item)
@@ -2758,7 +2758,7 @@ local function updateWorldEsp()
         end
     end
     for who,mark in pairs(playerMarks)do if not keepPlayers[who]then destroyMark(mark);playerMarks[who]=nil end end
-    objectInfo.Text=anyObjects and string.format("Генераторы %d · тыквы %d\nОкна %d · палеты %d · повесы %d",counts.generators,counts.pumpkins,counts.windows,counts.pallets,counts.hooks)
+    objectInfo.Text=anyObjects and string.format("Generators %d · pumpkins %d\nWindows %d · pallets %d · hooks %d",counts.generators,counts.pumpkins,counts.windows,counts.pallets,counts.hooks)
         or "Object ESP disabled."
 end
 local espElapsed=0
@@ -2782,7 +2782,7 @@ local function option(field,text,y)
     b=button(text,y,function()state[field]=not state[field];redraw()end)
     options[field]={button=b,text=text}
 end
-label("ИНТЕРФЕЙС",5000,24)
+label("INTERFACE",5000,24)
 local menuBindButton
 menuBindButton=button("Menu Key: "..bindLabel(state.menuBind),5036,function()
     waitingBind=false
@@ -2819,13 +2819,13 @@ button("Load Config from File",5204,function()
 end)
 local fonts={"Gotham","SourceSans","Ubuntu","RobotoMono","Arial","Roboto","Oswald","FredokaOne","Nunito","TitilliumWeb","Code","Cartoon"}
 local fontButton
-fontButton=button("Шрифт: Gotham",5256,function()
+fontButton=button("Font: Gotham",5256,function()
     local index=1;for i,name in ipairs(fonts)do if name==state.uiFont then index=i end end
     state.uiFont=fonts[index%#fonts+1];redraw()
 end)
 local themes={"Graphite","Midnight","Light"}
 local themeButton
- themeButton=button("Тема: Graphite",5298,function()
+ themeButton=button("Theme: Graphite",5298,function()
     local index=1;for i,name in ipairs(themes)do if name==state.uiTheme then index=i end end
     state.uiTheme=themes[index%#themes+1];redraw()
 end)
@@ -2907,7 +2907,7 @@ end
 -- The next-round card uses only values explicitly published by the game.
 do
     local frame=overlay("NextRoundHud",240,70,UDim2.fromScale(.75,.18),Vector2.new(.5,.5))
-    local content=overlayLabel(frame,"Киллер: нет данных\nКарта: нет данных",4,62)
+    local content=overlayLabel(frame,"Killer: no data\nMap: no data",4,62)
     content.Name="NextRoundHudText";content.TextXAlignment=Enum.TextXAlignment.Left
     state.nextRoundHud=frame;state.nextRoundHudText=content
 end
@@ -2950,7 +2950,7 @@ local function createMover(target,id,titleText,enabled,default)
     if id=="menuButton"then connect(target.InputBegan,function(input)beginMove(input,"button")end)end
 end
 createMover(meters,"performance","FPS / Ping",function()return state.stats end,{0.5,0.045})
-createMover(perkBox,"perks","Перки",function()return state.perks end,{0.16,0.16})
+createMover(perkBox,"perks","Perks",function()return state.perks end,{0.16,0.16})
 createMover(state.hiddenCircle,"hiddenFov","FOV Hidden M2",function()return state.hiddenAim and state.showHiddenFov and isKiller(player)end,{0.5,0.5})
 createMover(floatingMenu,"menuButton","Menu",function()return true end,{0.035,0.5})
 createMover(mobileParry,"parryButton","Parry",function()return Input.TouchEnabled end,{0.07,0.59})
@@ -3154,7 +3154,7 @@ state.renderSwitches=function()
     for field,entry in pairs(toggleButtons)do render(entry.button,entry.text,state[field])end
     for field,entry in pairs(state.uiOptions or {})do render(entry.button,entry.text,state[field])end
     for id,entry in pairs(state.metricOptions or {})do render(entry.button,entry.text,state.espMeters[id])end
-    render(mobileParry,"Пари",state.parry)
+    render(mobileParry,"Parry",state.parry)
 end
 end
 
@@ -3202,7 +3202,7 @@ state.audioDiagnostics=function()
     return {daggerEnabled=state.daggerSound,ownOnly=state.soundOwnOnly,
         daggerPreset=state.customSounds.dagger.preset,daggerVolume=state.customSounds.dagger.volume,events=audioEvents}
 end
-local audioInfo=label("Автособытия зависят от звуков текущей версии VD.",8948,34)
+local audioInfo=label("Automatic events depend on sounds in the current game version.",8948,34)
 local function destroyClip(sound)
     local entry=active[sound]
     if entry and entry.connection then entry.connection:Disconnect()end
@@ -3212,9 +3212,9 @@ local function destroyClip(sound)
 end
 local function play(id,preview)
     local config=state.customSounds[id]
-    if not config then return false,"Неизвестное событие."end
+    if not config then return false,"Unknown event."end
     local count=0;for _ in pairs(active)do count=count+1 end
-    if count>=8 then return false,"Слишком много звуков одновременно."end
+    if count>=8 then return false,"Too many sounds playing."end
     local sound=Instance.new("Sound");sound.Name="VDHelperCustomAudio"
     local preset=presets[config.preset or "Ping"]or presets.Ping
     local event={kind=preview and "preview"or "replacement",event=id,preset=config.preset,asset=preset.asset,volume=config.volume}
@@ -3236,7 +3236,7 @@ local function play(id,preview)
         end
     end)
     task.delay(20,function()if active[sound]then destroyClip(sound)end end)
-    if preview then audioInfo.Text="Прослушивание: "..id end
+    if preview then audioInfo.Text="Preview: "..id end
     return true,nil,sound
 end
 state.previewSound=play
@@ -3318,7 +3318,7 @@ local function watch(sound)
                 end)
             end
         end
-        audioInfo.Text=ok and("Событие: "..id)or tostring(reason)
+        audioInfo.Text=ok and("Event: "..id)or tostring(reason)
     end
     if sound:IsA("Sound")then watches[sound]=sound.Played:Connect(onPlayed)
     else pcall(function()watches[sound]=sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
@@ -3358,7 +3358,7 @@ connect(RunService.Heartbeat,function(dt)
                 if os.clock()-(lastEvent.dagger or -math.huge)<.15 then return end
                 lastEvent.dagger=os.clock()
                 local ok,reason=play("dagger")
-                audioInfo.Text=ok and "Стан подтверждён: звук даггера."or tostring(reason)
+                audioInfo.Text=ok and "Stun confirmed: dagger sound."or tostring(reason)
             end)
         end
     end
@@ -3373,7 +3373,7 @@ local controls={}
 for _,spec in ipairs(specs)do
     local id,y=spec.id,spec.y
     toggle(spec.field,spec.title,y)
-    local presetButton=button("Встроенный: Чистый сигнал",y+36,function()
+    local presetButton=button("Built-in: Clean Ping",y+36,function()
         local index=1
         for i,name in ipairs(presetOrder)do if name==state.customSounds[id].preset then index=i end end
         state.customSounds[id].preset=presetOrder[index%#presetOrder+1];state.refreshAudioUI()
@@ -3485,7 +3485,7 @@ local function range(check,goal,mode)
 end
 state.trapTargetAllowed=function(check,goal,relative)
     local first,last=range(check,goal,state.trapMode)
-    if not first then return false,"Bear trap: границы выбранной зоны недоступны."end
+    if not first then return false,"Bear trap: selected zone boundaries unavailable."end
     if not angleInside(relative,first,last)then return false end
     if state.trapMode=="Normal"then
         local a,b=range(check,goal,"Perfect")
@@ -3508,12 +3508,12 @@ connect(RunService.RenderStepped,function()
     if not ok then if reason then status.Text=reason end;return end
     used=true
     local sent=pcall(sendSkillInput)
-    status.Text=sent and "Bear trap: нажатие отправлено."or "Bear trap: ввод недоступен."
+    status.Text=sent and "Bear trap: input sent."or "Bear trap: input unavailable."
 end)
 toggle("autoTrap","Auto Bear Trap",7400)
 local mode=state.dropdown(7442,"Trap Mode",function()return {{value="Normal",label="Normal"},{value="Perfect",label="Perfect"}}end,
     function()return state.trapMode end,function(value)state.trapMode=value end,"trapMode")
-label("Normal / Perfect: нажатие при входе в выбранную зону.",7484,34)
+label("Normal / Perfect: input on entering the selected zone.",7484,34)
 state.refreshTrapUI=function()mode:refresh()end
 end
 
@@ -3551,9 +3551,9 @@ local function beginCapture(which)
     state.capturingBind=which
     state.refreshAvatarUI()
 end
-forwardBind=button("Бинд вперёд: не назначен",9094,function()beginCapture("moonForward")end)
-backwardBind=button("Бинд назад: не назначен",9136,function()beginCapture("moonBackward")end)
-label("Повторное нажатие выключает. Направления не работают вместе.",9178,34)
+forwardBind=button("Forward Bind: unbound",9094,function()beginCapture("moonForward")end)
+backwardBind=button("Backward Bind: unbound",9136,function()beginCapture("moonBackward")end)
+label("Press again to disable. Directions cannot be combined.",9178,34)
 connect(Input.InputBegan,function(input,processed)
     if Input:GetFocusedTextBox()then return end
     local capture=state.capturingBind
@@ -3613,7 +3613,7 @@ local catalog={"The Dab","Backflip","Rampage","Source","24 Hour Cinderella","Wav
 local liveEmotes={}
 local emoteSounds={}
 local emoteCharacter
-local emoteInfo=label("Оригинальный звук запускает игра. Доступ проверяет сервер.",9568,44)
+local emoteInfo=label("The game plays original audio. Access is controlled by the server.",9568,44)
 emoteInfo.Name="EmoteInfo"
 local function normalize(name)return tostring(name):lower():gsub("[^%w]","")end
 local lastEmoteScan=-math.huge
@@ -3708,8 +3708,8 @@ state.playSelectedEmote=function(forceLocal,loopOverride)
     stopEmote(loopOverride==true)
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local animator=hum and hum:FindFirstChildOfClass("Animator")
-    if not hum or hum.Health<=0 then status.Text="Персонаж ещё не готов.";return false end
-    if state.isDowned(char)then status.Text="В нокдауне доступно только движение.";return false end
+    if not hum or hum.Health<=0 then status.Text="Character is not ready.";return false end
+    if state.isDowned(char)then status.Text="Only movement is available while downed.";return false end
     if os.clock()-lastEmoteScan>2 then scanEmotes()end
     local record=liveEmotes[normalize(state.emoteName)]
     local source=record and(record.rigs[hum.RigType==Enum.HumanoidRigType.R6 and "R6"or "R15"]or record.animation)
@@ -3757,11 +3757,11 @@ state.playSelectedEmote=function(forceLocal,loopOverride)
             return ok
         end
     end
-    if not animator then status.Text="Animator недоступен.";return false end
-    if not id then status.Text="Нет игрового EmoteHandler и доступного ассета этой эмоции.";return false end
+    if not animator then status.Text="Animator unavailable.";return false end
+    if not id then status.Text="EmoteHandler and emote asset unavailable.";return false end
     local animation=Instance.new("Animation");animation.AnimationId="rbxassetid://"..id
     local ok,track=pcall(function()return animator:LoadAnimation(animation)end)
-    if not ok or not track then animation:Destroy();status.Text="Roblox не разрешил эту анимацию.";return false end
+    if not ok or not track then animation:Destroy();status.Text="Roblox rejected this animation.";return false end
     state.emoteLast={name=state.emoteName,transport="local asset",status="loading",asset=id}
     emoteAnimation,emoteTrack=animation,track;emoteCharacter=char
     track.Priority=Enum.AnimationPriority.Action;track.Looped=state.emoteLoop or loopOverride==true
@@ -3804,9 +3804,9 @@ state.playSelectedEmote=function(forceLocal,loopOverride)
     end end
     pcall(function()connect(track.Stopped,function()if emoteTrack==track then stopEmote()end end)end)
     state.emoteLast.status="local playback requested"
-    status.Text="Локальная эмоция запущена; другим игрокам не гарантируется."
+    status.Text="Local emote started; visibility to others is not guaranteed."
     task.delay(5,function()
-        if state.alive and emoteTrack==track and track.Length==0 then stopEmote();status.Text="Roblox не загрузил эту анимацию."
+        if state.alive and emoteTrack==track and track.Length==0 then stopEmote();status.Text="Roblox did not load this animation."
             if state.emoteLast then state.emoteLast.status="asset loading rejected or timed out"end
         end
     end)
@@ -3822,27 +3822,27 @@ local emoteChoice=state.dropdown(9330,"Emote",function()
     for _,name in ipairs(catalog)do local live=liveEmotes[normalize(name)];add(live and live.name or name)end
     for _,record in pairs(liveEmotes)do add(record.name)end
     table.sort(result,function(a,b)return a.label:lower()<b.label:lower()end)
-    add("Custom ID","По ID · локально")
-    if not seen[normalize(state.emoteName)]then add(state.emoteName,state.emoteName.." · нет в каталоге")end
+    add("Custom ID","By ID · local")
+    if not seen[normalize(state.emoteName)]then add(state.emoteName,state.emoteName.." · not in catalog")end
     return result
 end,function()return state.emoteName end,function(value)stopEmote();state.emoteName=value;state.refreshAvatarUI()end,"emotes")
 label("Custom animation ID (optional)",9372,24)
 local emoteBox=textSetting(9400,state.emoteId,function(value)
     local id=value:match("^%s*(%d+)%s*$")or value:match("^%s*rbxassetid://(%d+)%s*$")
-    if not id or #id>20 then status.Text="Нужен ID анимации.";return end
+    if not id or #id>20 then status.Text="Animation ID required.";return end
     state.emoteId=id;state.emoteName="Custom ID";state.refreshAvatarUI();return id
 end)
 emoteBox.Name="EmoteAsset"
 button("Play Emote",9442,state.playSelectedEmote)
 button("Play Locally",9443,function()state.playSelectedEmote(true)end)
-button("Stop Local Emote",9484,function()stopEmote();status.Text="Игровую эмоцию останови штатно движением."end)
+button("Stop Local Emote",9484,function()stopEmote();status.Text="Move to stop the native emote."end)
 local loopButton=button("Loop Local Emote",9526,function()
     state.emoteLoop=not state.emoteLoop;if emoteTrack then emoteTrack.Looped=state.emoteLoop or bindEmoteActive end
     if state.applyStyle then state.applyStyle()end
 end)
 state.uiOptions.emoteLoop={button=loopButton,text="Loop Local Emote"}
-local emoteBindButton=button("Бинд эмоции: не назначен",9610,function()beginCapture("emote")end)
-button("Refresh Emote List",9652,function()scanEmotes();emoteChoice:refresh();status.Text="Каталог VD дополнен ассетами клиента."end)
+local emoteBindButton=button("Emote Bind: unbound",9610,function()beginCapture("emote")end)
+button("Refresh Emote List",9652,function()scanEmotes();emoteChoice:refresh();status.Text="Emote catalog refreshed from client assets."end)
 state.refreshAvatarUI=function()
     forwardBind.Text=state.capturingBind=="moonForward"and "Press a key · Backspace to clear"or "Forward Bind: "..bindLabel(state.moonForwardBind)
     backwardBind.Text=state.capturingBind=="moonBackward"and "Press a key · Backspace to clear"or "Backward Bind: "..bindLabel(state.moonBackwardBind)
@@ -3906,19 +3906,19 @@ local function giveTool()
         local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
         local animator=hum and hum:FindFirstChildOfClass("Animator")
         if not hum or hum.RigType~=Enum.HumanoidRigType.R6 or not animator then
-            status.Text="Jerk Off: нужна модель R6 с Animator.";return
+            status.Text="Jerk Off requires an R6 rig with an Animator.";return
         end
         for _,id in ipairs({"72042024","168268306"})do
             local animation=Instance.new("Animation");animation.AnimationId="rbxassetid://"..id
             local ok,track=pcall(function()return animator:LoadAnimation(animation)end)
             animation:Destroy()
             if not ok or not track then
-                stopToolAnimations();status.Text="Не удалось загрузить анимацию Jerk Off.";return
+                stopToolAnimations();status.Text="Could not load Jerk Off animation.";return
             end
             track.Priority=Enum.AnimationPriority.Action;track.Looped=false
             tracks[#tracks+1]=track
             local played=pcall(function()track:Play(.1);track:AdjustSpeed(0)end)
-            if not played then stopToolAnimations();status.Text="Не удалось запустить Jerk Off.";return end
+            if not played then stopToolAnimations();status.Text="Could not start Jerk Off.";return end
         end
         local motion,pose=tracks[1],tracks[2]
         local motionReady,poseReady=false,false
@@ -3936,14 +3936,14 @@ local function giveTool()
         end)
         task.delay(5,function()
             if tracks[1]==motion and(not motionReady or not poseReady)then
-                stopToolAnimations();status.Text="Анимация Jerk Off не загрузилась."
+                stopToolAnimations();status.Text="Jerk Off animation failed to load."
             end
         end)
-        status.Text="Jerk Off: анимация запущена локально."
+        status.Text="Jerk Off animation started locally."
     end)
     tool.Unequipped:Connect(stopToolAnimations)
     tool.Parent=backpack
-    status.Text="Jerk Off добавлен в рюкзак."
+    status.Text="Jerk Off added to backpack."
 end
 button("Add Jerk Off to Backpack",9690,function()enabled=true;giveTool()end)
 connect(player.CharacterAdded,function()
@@ -4242,7 +4242,7 @@ state.refreshPresentation=function()
             local bloom=Instance.new("BloomEffect");effects[#effects+1]=bloom
             bloom.Name="SeterageBloom";bloom.Intensity=preset.bloom;bloom.Size=18;bloom.Threshold=1.6;bloom.Parent=Lighting
         end)
-        if not ok then resetShaders();status.Text="Шейдеры недоступны в этом клиенте."else appliedShader=state.shaderPreset end
+        if not ok then resetShaders();status.Text="Shaders unavailable in this client."else appliedShader=state.shaderPreset end
     end
     if appliedImage~=state.backgroundImage then
         appliedImage=state.backgroundImage;loadedImage=nil
@@ -4252,9 +4252,9 @@ state.refreshPresentation=function()
             -- Explicit user-supplied image file only; no directory scans or downloads.
             local asset=type(getcustomasset)=="function"and getcustomasset or nil
             local relative=appliedImage:sub(7)
-            if relative:find("..",1,true)or relative:sub(1,1)=="/"then status.Text="Фон: укажи относительный путь без .."
-            elseif asset then local ok,result=pcall(asset,relative);if ok and type(result)=="string"then loadedImage=result else status.Text="Локальная картинка недоступна."end
-            else status.Text="Клиент не поддерживает локальный фон. Используй ID картинки Roblox."end
+            if relative:find("..",1,true)or relative:sub(1,1)=="/"then status.Text="Background: use a relative path without .."
+            elseif asset then local ok,result=pcall(asset,relative);if ok and type(result)=="string"then loadedImage=result else status.Text="Local image unavailable."end
+            else status.Text="Local backgrounds unsupported. Use a Roblox image ID."end
         end
         background.Image=loadedImage or ""
     end
@@ -4268,13 +4268,13 @@ toggle("shaders","Shaders",4550)
 shaderChoice=state.dropdown(4552,"Preset",function()
     local list={};for _,id in ipairs({"Soft","Cinema","Cold","Warm","Noir","Vibrant","Night","Clear","Neon","Sunset","Realistic"})do list[#list+1]={value=id,label=shaderPresets[id].name}end;return list
 end,function()return state.shaderPreset end,function(value)state.shaderPreset=value;state.refreshPresentation()end,"shaders")
-label("Локальные цветокоррекция и мягкое свечение.",4592,28)
-toggle("backgroundEnabled","Своя картинка в меню",5776)
-label("ID картинки Roblox или local:images/menu.png",5818,28)
+label("Local color correction and soft bloom.",4592,28)
+toggle("backgroundEnabled","Custom Menu Background",5776)
+label("Roblox image ID or local:images/menu.png",5818,28)
 backgroundBox=textSetting(5860,"",function(text)
     local value=text:match("^%s*(.-)%s*$")
-    if #value>240 or(value~=""and not value:match("^%d+$")and not value:match("^rbxassetid://%d+$")and not value:match("^local:[%w _%./%-]+$"))then status.Text="Фон: ID картинки или local:путь.png";return end
-    if value:sub(1,6)=="local:"and(value:find("..",7,true)or value:sub(7,7)=="/")then status.Text="Нужен относительный путь без ..";return end
+    if #value>240 or(value~=""and not value:match("^%d+$")and not value:match("^rbxassetid://%d+$")and not value:match("^local:[%w _%./%-]+$"))then status.Text="Background: image ID or local:path.png";return end
+    if value:sub(1,6)=="local:"and(value:find("..",7,true)or value:sub(7,7)=="/")then status.Text="Use a relative path without ..";return end
     state.backgroundImage=value;state.refreshPresentation();return value
 end)
 backgroundBox.Name="BackgroundImage"
@@ -4289,12 +4289,12 @@ end
 -- No RNG prediction: display a next-round announcement only if the game publishes it.
 do
 local ReplicatedStorage=game:GetService("ReplicatedStorage")
-local text=label("Следующий раунд: нет опубликованных данных.",4676,60)
+local text=label("Next round: no published data.",4676,60)
 text.Name="NextRoundInfo"
-toggle("nextRound","Объявленные киллер / карта",4634)
-toggle("showNextHud","Следующий раунд на экране",4635)
-toggle("nextRoundMap","Следующая карта на экране",4636)
-toggle("nextRoundKiller","Следующий киллер на экране",4637)
+toggle("nextRound","Announced Killer / Map",4634)
+toggle("showNextHud","Next Round on Screen",4635)
+toggle("nextRoundMap","Next Map on Screen",4636)
+toggle("nextRoundKiller","Next Killer on Screen",4637)
 local mapPreparing=false
 local mapPreparingAt=0
 local preparedMap=nil
@@ -4357,8 +4357,8 @@ local function bestKillerChance()
         if type(selected)=="string"and selected~=""then name=name.." · "..selected end
         names[#names+1]=name
     end
-    if #candidates>3 then names[#names+1]="ещё "..(#candidates-3)end
-    return "Наибольший шанс ("..tostring(best).."): "..table.concat(names,", ")
+    if #candidates>3 then names[#names+1]="more: "..(#candidates-3)end
+    return "Highest chance ("..tostring(best).."): "..table.concat(names,", ")
 end
 state.nextRoundDiagnostics=function()
     local report={candidates={},mapPreparing=mapPreparing,preparedMap=preparedMapName()}
@@ -4402,18 +4402,18 @@ connect(RunService.Heartbeat,function(dt)
     local showMap=showBoth or state.nextRoundMap
     local showKiller=showBoth or state.nextRoundKiller
     state.nextRoundHud.Visible=showMap or showKiller
-    if not showMap and not showKiller then text.Text="Следующий раунд: выключено.";return end
+    if not showMap and not showKiller then text.Text="Next round: disabled.";return end
     local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})
     local map=read({"NextMap","NextMapName","UpcomingMap"})
     local preparing=not map and preparedMapName()or nil
     local lines={}
-    if showKiller then lines[#lines+1]=killer and("Киллер: "..killer)or bestKillerChance()or "Киллер: нет данных"end
+    if showKiller then lines[#lines+1]=killer and("Killer: "..killer)or bestKillerChance()or "Killer: no data"end
     if showMap then
-        lines[#lines+1]=map and("Следующая карта: "..map)or(preparing and("Карта раунда: "..preparing)or "Карта: нет данных")
+        lines[#lines+1]=map and("Next map: "..map)or(preparing and("Round map: "..preparing)or "Map: no data")
     end
     local value=table.concat(lines,"\n")
-    text.Text="Данные игры\n"..value
-    state.nextRoundHudText.Text="Следующий раунд · данные игры\n"..value
+    text.Text="Game data\n"..value
+    state.nextRoundHudText.Text="Next round · game data\n"..value
 end)
 end
 
@@ -4483,7 +4483,7 @@ do
 local ownsShift,sending=false,false
 local lastMobile=-math.huge
 local mobileButton,mobileCharacter,mobileStarted=nil,nil,false
-local sprintInfo=label("Спринт работает при движении. Скорость задаёт игра.",3726,44)
+local sprintInfo=label("Sprint activates while moving. Speed is controlled by the game.",3726,44)
 sprintInfo.Name="SprintInfo"
 local function shift(down)
     if not virtualInput then return false end
@@ -4554,7 +4554,7 @@ connect(RunService.Heartbeat,function(dt)
     if (state.autoRunPC or(state.fastVault and state.vaultNearWindow))and Input.KeyboardEnabled and not((state.autoRunMobile or state.vaultSprint)and Input.TouchEnabled)and allowed then
         if not ownsShift then
             local physical=false;pcall(function()physical=Input:IsKeyDown(Enum.KeyCode.LeftShift)end)
-            if not physical and not shift(true)then sprintInfo.Text="PC: виртуальный Shift недоступен."end
+            if not physical and not shift(true)then sprintInfo.Text="PC: virtual Shift unavailable."end
         end
     elseif ownsShift then shift(false)end
     if not(state.autoRunMobile or state.vaultSprint)or not Input.TouchEnabled or not allowed then
@@ -4562,15 +4562,15 @@ connect(RunService.Heartbeat,function(dt)
     end
     if mobileCharacter~=char then resetMobile();mobileCharacter=char end
     local button=findSprint()
-    if not button then sprintInfo.Text="Mobile: штатная кнопка Sprint не найдена.";return end
+    if not button then sprintInfo.Text="Mobile: native Sprint button not found.";return end
     if mobileButton and mobileButton~=button then resetMobile();mobileCharacter=char end
     mobileButton=button
     local running=mobileState(button)
-    if running==nil then sprintInfo.Text="Mobile: нет доступного индикатора спринта; повторные нажатия заблокированы.";return end
+    if running==nil then sprintInfo.Text="Mobile: sprint indicator unavailable; repeated input blocked.";return end
     if running==false and os.clock()-lastMobile>=1 then
         lastMobile=os.clock()
-        if tap(button)then mobileStarted=true;sprintInfo.Text="Mobile: отправлено нажатие Sprint."
-        else sprintInfo.Text="Mobile: симуляция касания недоступна."end
+        if tap(button)then mobileStarted=true;sprintInfo.Text="Mobile: Sprint input sent."
+        else sprintInfo.Text="Mobile: touch simulation unavailable."end
     end
 end)
 end
@@ -4601,7 +4601,7 @@ local function findMovementController(char)
     end)
     return nil
 end
-local healInfo=label("Самохил: нажми кнопку, когда ранен и не нокнут.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
+local healInfo=label("Self Heal: press while injured and not downed.",3894,34);healInfo.Name="SelfHealInfo";state.healInfo=healInfo
 local function boolFlag(object,name)
     if not object then return false end
     local value=object:GetAttribute(name)
@@ -4647,24 +4647,24 @@ local function injured(char,hum)
     return not state.isDowned(char)and hum.Health>50 and hum.Health<95 and hum.Health<hum.MaxHealth
 end
 toggle("noSlowdown","No slowdown",3800)
-label("Скорость при распознанном замедлении · тест.",3840,28)
+label("Movement speed during recognised slowdown · test.",3840,28)
 local function toggleSelfHeal()
     if healSession then stopHealing();healInfo.Text="Self Heal stopped.";return end
     local char=player.Character;local hum=char and char:FindFirstChildOfClass("Humanoid")
     local root=char and char:FindFirstChild("HumanoidRootPart")
     if not char or not hum or not root or isKiller(player)or not injured(char,hum)then
-        healInfo.Text="Самохил доступен раненому игроку без нокдауна.";return
+        healInfo.Text="Self Heal requires being injured and not downed.";return
     end
     if hum.MoveDirection.Magnitude>.05 or busy(char,hum)then
-        healInfo.Text="Остановись и заверши текущее действие.";return
+        healInfo.Text="Stop moving and finish the current action.";return
     end
     local remotes=game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
     local healing=remotes and remotes:FindFirstChild("Healing")
     local remote=healing and healing:FindFirstChild("HealEvent")
-    if not remote or not remote:IsA("RemoteEvent")then healInfo.Text="Запрос лечения не найден.";return end
+    if not remote or not remote:IsA("RemoteEvent")then healInfo.Text="Heal request unavailable.";return end
     local requestId=game:GetService("HttpService"):GenerateGUID(false)
     local ok=pcall(function()remote:FireServer(root,true,requestId,char)end)
-    if not ok then healInfo.Text="Не удалось отправить запрос лечения.";return end
+    if not ok then healInfo.Text="Could not send heal request.";return end
     healSession={remote=remote,root=root,char=char,hum=hum,requestId=requestId,start=os.clock()}
     state.selfHealing=true
     healInfo.Text="Request sent. Waiting for the game."
@@ -4677,7 +4677,7 @@ state.refreshHealBind=function()
             or "Self Heal Bind: "..bindLabel(state.selfHealBind)
     end
 end
-healBindButton=button("Бинд самохила: не назначен",3861,function()
+healBindButton=button("Self Heal Bind: unbound",3861,function()
     waitingBind=false;bindButton.Text="Auto Parry Bind: "..bindLabel(state.parryBind)
     state.capturingBind="selfHeal";state.refreshHealBind()
 end)
@@ -4747,7 +4747,7 @@ connect(RunService.Heartbeat,function(dt)
         elseif not injured(char,hum)then
             stopHealing();healInfo.Text="Health restored."
         elseif os.clock()-healSession.start>30 then
-            stopHealing();healInfo.Text="Самохил не подтверждён игрой."
+            stopHealing();healInfo.Text="Self Heal was not confirmed by the game."
         end
     end
 end)
@@ -4762,18 +4762,18 @@ local choice=state.dropdown(3450,"Config",function()
     table.sort(names,function(a,b)return a:lower()<b:lower()end)
     local result={};for _,name in ipairs(names)do result[#result+1]={value=name,label=name}end;return result
 end,function()return state.profileName end,function(name)
-    if state.switchProfile then local ok,reason=state.switchProfile(name);status.Text=ok and("Конфиг: "..name)or tostring(reason)end
+    if state.switchProfile then local ok,reason=state.switchProfile(name);status.Text=ok and("Config: "..name)or tostring(reason)end
 end,"profiles")
 label("Config Name",3484,24)
 nameBox=textSetting(3520,"Default",function(value)
     value=value:match("^%s*(.-)%s*$")
-    if #value==0 or #value>48 or value:find("[%z\1-\31]")then status.Text="Название: 1–48 символов.";return end
+    if #value==0 or #value>48 or value:find("[%z\1-\31]")then status.Text="Name must be 1–48 characters.";return end
     state.profileDraft=value;return value
 end)
 nameBox.Name="ProfileName"
 button("Save As",3554,function()
     local name=state.profileDraft or state.profileName
-    if state.saveProfileAs then local ok,reason=state.saveProfileAs(name);status.Text=ok and("Сохранён конфиг: "..name)or tostring(reason)end
+    if state.saveProfileAs then local ok,reason=state.saveProfileAs(name);status.Text=ok and("Config saved: "..name)or tostring(reason)end
 end)
 state.refreshProfileUI=function()
     choice:refresh()
@@ -4928,7 +4928,7 @@ button("Copy Diagnostics",5882,function()
     if not ok then status.Text="Could not collect diagnostics.";return end
     state.presentDiagnostic(text)
     local copied=type(setclipboard)=="function"and pcall(setclipboard,text)
-    status.Text=copied and "Diagnostics copied to clipboard."or "Диагностика в поле JSON. Скопируй текст вручную."
+    status.Text=copied and "Diagnostics copied to clipboard."or "Diagnostics are in the JSON field. Copy them manually."
 end)
 local capturedCheck,capturedGoal
 local elapsed=0
@@ -4953,7 +4953,7 @@ local light
 local savedZoom
 local warning=Instance.new("TextLabel");warning.Name="KillerWarning";warning.BackgroundTransparency=1
 warning.Size=UDim2.fromOffset(150,40);warning.Position=UDim2.new(.5,-75,.2,0)
-warning.Text="! Киллер рядом";warning.TextColor3=Color3.fromRGB(255,85,105);warning.TextSize=18
+warning.Text="! Killer nearby";warning.TextColor3=Color3.fromRGB(255,85,105);warning.TextSize=18
 warning.Font=Enum.Font.GothamBold;warning.Visible=false;warning.Parent=crossGui
 local function restore()
     if light then light:Destroy();light=nil end
@@ -4965,7 +4965,7 @@ toggle("fullbright","Fullbright",4800)
 toggle("killerWarn","Killer Nearby",4842)
 toggle("antiAfk","Anti AFK",9700)
 toggle("maxZoom","Max Zoom",9742)
-label("Работает, если клиент поддерживает виртуальный ввод.",9784,30)
+label("Requires virtual input support.",9784,30)
 pcall(function()connect(player.Idled,function()
     if not state.antiAfk or Input:GetFocusedTextBox()then return end
     local ok,vu=pcall(function()return game:GetService("VirtualUser")end)
@@ -5293,14 +5293,14 @@ local function currentConfig()
     local text,document=state.exportConfig();return text,fingerprint(document)
 end
 local function writeIndex(profiles,selected)
-    if not writer then return false,"Запись файлов недоступна; профили доступны до перезапуска."end
-    if blocked then return false,"Индекс профилей повреждён и сохранён без перезаписи. Используй JSON Export."end
+    if not writer then return false,"File writing unavailable; profiles last until restart."end
+    if blocked then return false,"Profile index is corrupted and was not overwritten. Use JSON Export."end
     local ok=pcall(function()writer(indexPath,Http:JSONEncode({schema="SETERAGE_PROFILES",version=1,selected=selected,profiles=profiles}))end)
-    return ok,ok and nil or "Не удалось сохранить список конфигов."
+    return ok,ok and nil or "Could not save config list."
 end
 state.saveConfigFile=function()
     local ok,text,signature=pcall(currentConfig)
-    if not ok then return false,"Ошибка экспорта конфига."end
+    if not ok then return false,"Config export failed."end
     local nextProfiles={};for name,value in pairs(state.profiles)do nextProfiles[name]=value end
     nextProfiles[state.profileName]=text
     local saved,reason=writeIndex(nextProfiles,state.profileName)
@@ -5310,20 +5310,20 @@ state.saveConfigFile=function()
     end
     state.profiles=nextProfiles;lastSaved=signature;pending=nil
     local legacyOk=pcall(writer,path,text)
-    state.fileInfo.Text=legacyOk and "Config saved."or "Профиль сохранён; резервный файл недоступен."
+    state.fileInfo.Text=legacyOk and "Config saved."or "Profile saved; backup file unavailable."
     if state.refreshProfileUI then state.refreshProfileUI()end
     return true
 end
 local function applyText(text)
     loading=true;local called,valid,reason=pcall(state.importConfig,text);loading=false
-    if not called or not valid then return false,"Конфиг отклонён: "..tostring(reason or valid)end
+    if not called or not valid then return false,"Config rejected: "..tostring(reason or valid)end
     local ok,_,signature=pcall(currentConfig);if ok then lastSaved=signature;pending=nil end
     return true
 end
 state.loadConfigFile=function()
     local text=state.profiles[state.profileName]
     if not text and reader then local ok,value=pcall(reader,path);if ok and type(value)=="string"then text=value end end
-    if not text then return false,"Сохранённого конфига нет."end
+    if not text then return false,"No saved config."end
     local ok,reason=applyText(text)
     if ok then state.fileInfo.Text="Config loaded.";if state.refreshProfileUI then state.refreshProfileUI()end end
     return ok,reason
@@ -5336,7 +5336,7 @@ state.flushConfig=function()
 end
 state.switchProfile=function(name)
     local text=state.profiles[name]
-    if not text then return false,"Профиль не найден."end
+    if not text then return false,"Profile not found."end
     local ok,reason=state.flushConfig();if not ok and writer then return false,reason end
     ok,reason=applyText(text);if not ok then return false,reason end
     state.profileName=name
@@ -5346,9 +5346,9 @@ state.switchProfile=function(name)
     return true
 end
 state.saveProfileAs=function(name)
-    if type(name)~="string"or #name==0 or #name>48 or name:find("[%z\1-\31]")then return false,"Название: 1–48 символов."end
+    if type(name)~="string"or #name==0 or #name>48 or name:find("[%z\1-\31]")then return false,"Name must be 1–48 characters."end
     local count=0;for _ in pairs(state.profiles)do count=count+1 end
-    if count>=64 and not state.profiles[name]then return false,"Можно сохранить до 64 профилей."end
+    if count>=64 and not state.profiles[name]then return false,"Up to 64 profiles are supported."end
     local previous=state.profileName;state.profileName=name
     local ok,reason=state.saveConfigFile()
     if not ok and writer then state.profileName=previous end
@@ -5368,7 +5368,7 @@ if reader then
             if count>64 or type(name)~="string"or #name<1 or #name>48 or name:find("[%z\1-\31]")or type(text)~="string"or #text>65536 then valid=false;break end
         end end
         if valid and decoded.profiles[decoded.selected]then state.profiles=decoded.profiles;state.profileName=decoded.selected
-        else blocked=true;state.fileInfo.Text="Индекс профилей повреждён; файл не перезаписывается."end
+        else blocked=true;state.fileInfo.Text="Profile index is corrupted; file will not be overwritten."end
     end
     if not next(state.profiles)then
         local ok,text=pcall(reader,path)
@@ -5381,10 +5381,10 @@ if selected then
     if decodedOk and type(decoded)=="table"and type(decoded.settings)=="table"and decoded.settings.autoLoad==false then
         state.autoLoad=false
         if type(decoded.settings.autoSave)=="boolean"then state.autoSave=decoded.settings.autoSave end
-        state.fileInfo.Text="Автозагрузка выключена."
+        state.fileInfo.Text="Auto Load disabled."
     else local ok,reason=state.loadConfigFile();if not ok then state.fileInfo.Text=reason end end
-elseif not reader then state.fileInfo.Text="Файлы недоступны. Используй JSON Import / Export."
-else state.fileInfo.Text="Создай первый конфиг через «Сохранить как»."end
+elseif not reader then state.fileInfo.Text="Files unavailable. Use JSON Import / Export."
+else state.fileInfo.Text="Create a config using Save As."end
 local ok,_,signature=pcall(currentConfig);if ok then lastSaved=signature end
 if state.refreshProfileUI then state.refreshProfileUI()end
 local elapsed=0
