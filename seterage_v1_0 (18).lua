@@ -602,9 +602,9 @@ local function toggle(field, text, y)
     toggleButtons[field] = {button = item, text = text}
     return item
 end
-toggle("esp", "Подсветка киллера", 52)
-toggle("autoSkill", "Авто скиллчеки", 96)
-label("Выбирает зону скиллчека по режиму.", 182, 40)
+toggle("esp", "Killer Highlight", 52)
+toggle("autoSkill", "Auto Generator", 96)
+label("Automatically attempts perfect skill checks.", 182, 40)
 
 -- Native projection plus an explicit legacy matrix path; camera writes run last.
 local cameraOriginals=setmetatable({},{__mode="k"})
@@ -757,8 +757,6 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     updateCamera()
 end)
 label("Пресеты имитируют растянутые 4:3 и 16:10.\nИнтерфейс и разрешение экрана не меняются.", 522, 38)
-toggle("perks", "Перки маньяка на экране", 686)
-label("Только доступные клиенту данные.\nСкрытые перки и их эффекты не угадываются.", 730, 40)
 label("Подсветка ищет команду Killer/Killers.\nАвто скиллчеки требуют проверки в игре.", 782, 60)
 
 local function overlay(name, width, height, position, anchor)
@@ -893,7 +891,7 @@ state.perkDiagnostics=function()
     return result
 end
 updateOverlays = function()
-    perkBox.Visible = state.perks
+    perkBox.Visible = false
     if not state.perks then return end
     local rows, killerCount = {}, 0
     local results=game:GetService("ReplicatedStorage"):FindFirstChild("MatchResults")
@@ -1355,8 +1353,8 @@ state.setParry = function(enabled)
     if state.applyStyle then state.applyStyle() end
 end
 label("АВТО ДАГГЕР / ПАРИРОВАНИЕ", 1340, 24)
-toggle("parry", "Автопарирование", 1370)
-toggle("antiFakeHit","Anti Fake Hit · тест",1370.1)
+toggle("parry", "Auto Parry", 1370)
+toggle("antiFakeHit","Anti Fake Hit · test",1370.1)
 do
 local watchers,elapsed,lastInput={},0,0
 local function clearWatchers()
@@ -1396,8 +1394,8 @@ connect(RunService.Heartbeat,function(dt)
 end)
 connect(gui.Destroying,clearWatchers)
 end
-toggle("showParryFov","Показывать радиус даггера",1371)
-label("Расстояние до убийцы: 2–25 студов", 1412, 24)
+toggle("showParryFov","Show Parry Radius",1371)
+label("Parry Distance: 2–25 studs", 1412, 24)
 numberInput(1440, 12, 2, 25, function(v) state.parryRadius = v end)
 label("Направление взгляда убийцы: −1…1", 1482, 24)
 numberInput(1510, 0.7, -1, 1, function(v) state.faceSensitivity = v end)
@@ -1829,9 +1827,9 @@ end)
 connect(RunService.Heartbeat,function()pcall(updateKnock)end)
 label("ЛОКАЛЬНЫЕ ЭФФЕКТЫ",2410,24)
 toggle("antiKnock","God Mode",2440)
-toggle("fastVault","Fast Vault · эксперимент",2490)
-toggle("spikeVault","Перелаз через шипы · эксперимент",2493)
-toggle("abyssAutoCrouch","Автоприсед от M2 Abysswalker · тест",2493.5)
+toggle("fastVault","Fast Vault · test",2490)
+toggle("spikeVault","Spike Vault · test",2493)
+toggle("abyssAutoCrouch","Auto Crouch Abysswalker M2 · test",2493.5)
 label("Эксперимент: спринт и движение при перелазе. Эффект не гарантирован.",2494,36)
 toggle("vaultSpeedEnabled","Vault Speed",2495)
 label("Скорость перелаза: 1–20",2496,24)
@@ -1893,8 +1891,8 @@ toggle("antiBlind","Anti Blind",2534)
 label("Скрывает эффекты с именем Blind.\nЕсли VD использует другие имена, потребуется адаптация.",2576,44)
 label("HIDDEN M2 AIM LOCK",2726,24)
 toggle("hiddenAim","Hidden M2 Aim Lock",2756)
-toggle("showHiddenFov","Показывать FOV M2",2757)
-toggle("showTargetLine","Линия к цели M2",2979)
+toggle("showHiddenFov","Show M2 FOV",2757)
+toggle("showTargetLine","Show M2 Target Line",2979)
 label("FOV-радиус: 35–400 пикселей",2798,24)
 numberInput(2826,150,35,400,function(v)state.hiddenFov=v;refreshExtensions()end)
 label("Скорость наведения: 1–40",2868,24)
@@ -1925,15 +1923,15 @@ connect(Input.InputBegan,function(input,processed)
     end
 end)
 label("Управляет камерой только во время известной M2-анимации.\nДругие способности и обычные атаки не включают наведение.",2980,44)
-toggle("veilSpearAim","Veil Spear Silent Aim · тест",2981)
+toggle("veilSpearAim","Veil Spear Silent Aim · test",2981)
 label("FOV копья: 50–499 пикселей",2982,24)
 numberInput(2983,150,50,499,function(v)state.veilSpearFov=v end)
 label("Дистанция копья: 20–299 студов",2984,24)
 numberInput(2985,150,20,299,function(v)state.veilSpearDistance=v end)
-toggle("veilSpearShowLine","Показывать линию цели",2985.1)
-toggle("veilSpearShowFov","Показывать круг FOV",2985.2)
-toggle("veilSpearPrediction","Авто предикт движения",2985.3)
-toggle("killerAimbot","AimBot маньяка при атаке · тест",2986)
+toggle("veilSpearShowLine","Show Target Line",2985.1)
+toggle("veilSpearShowFov","Show FOV Circle",2985.2)
+toggle("veilSpearPrediction","Auto Prediction",2985.3)
+toggle("killerAimbot","Killer AimBot · test",2986)
 label("Скорость доводки: 1–40",2987,24)
 numberInput(2988,18,1,40,function(v)state.killerAimStrength=v end)
 do
@@ -2130,7 +2128,7 @@ local function validateConfig(text)
     if #values.backgroundImage>240 or(values.backgroundImage~=""and not values.backgroundImage:match("^%d+$")and not values.backgroundImage:match("^rbxassetid://%d+$")and not values.backgroundImage:match("^local:[%w _%./%-]+$"))then error("Неверный фон")end
     if values.backgroundImage:sub(1,6)=="local:"and(values.backgroundImage:find("..",7,true)or values.backgroundImage:sub(7,7)=="/")then error("Неверный путь фона")end
     values.shaderPreset=source.shaderPreset or "Soft"
-    if not ({Soft=true,Cinema=true,Cold=true,Warm=true,Noir=true,Vibrant=true,Night=true,Clear=true})[values.shaderPreset]then error("Неизвестный шейдер")end
+    if not ({Soft=true,Cinema=true,Cold=true,Warm=true,Noir=true,Vibrant=true,Night=true,Clear=true,Neon=true,Sunset=true,Realistic=true})[values.shaderPreset]then error("Unknown shader")end
     values.stretchMode=source.stretchMode or "Auto"
     if not ({Auto=true,Native=true,Matrix=true})[values.stretchMode]then error("Неизвестный растяг")end
     values.aspect=source.aspect or state.aspect
@@ -2626,16 +2624,16 @@ local function showMark(mark,name,distance,kind,object)
     mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
 end
 label("ОБЪЕКТЫ НА КАРТЕ",4000,24)
-toggle("espGenerators","ESP генераторов",4034)
-toggle("espPumpkins","ESP тыкв",4076)
-toggle("espWindows","ESP окон",4118)
-toggle("espPallets","ESP палет",4160)
-toggle("espHooks","ESP повесов",4180)
-toggle("killerDistance","ESP киллера",4202)
-toggle("survivorDistance","ESP сурвов",4244)
-toggle("espGeneratorState","Состояние генераторов",4035.7)
-toggle("espPlayerState","Состояние игроков",4245.7)
-toggle("espLabelsBelow","Надписи снизу",4260)
+toggle("espGenerators","Generator ESP",4034)
+toggle("espPumpkins","Pumpkin ESP",4076)
+toggle("espWindows","Window ESP",4118)
+toggle("espPallets","Pallet ESP",4160)
+toggle("espHooks","Hook ESP",4180)
+toggle("killerDistance","Killer ESP",4202)
+toggle("survivorDistance","Survivor ESP",4244)
+toggle("espGeneratorState","Generator State",4035.7)
+toggle("espPlayerState","Player State",4245.7)
+toggle("espLabelsBelow","Labels Below",4260)
 state.metricOptions={}
 for _,entry in ipairs({{"generators",4035.5},{"pumpkins",4077.5},{"windows",4119.5},{"pallets",4161.5},{"hooks",4181.5},
     {"killerDistance",4203.5},{"survivorDistance",4245.5},{"killerHighlight",53.5}})do
@@ -3157,10 +3155,9 @@ end
 
 -- Selected zone: submit on its first observed frame, without user timing offsets.
 do
-local modeButton=state.dropdown(7010,"Режим",function()return {{value="Normal",label="Normal"},{value="Perfect",label="Perfect"}}end,
-    function()return state.skillMode end,function(value)state.skillMode=value end,"skillMode")
-label("Normal — вход в обычную зону. Perfect — вход в белую.",7052,32)
-state.refreshSkillUI=function()modeButton:refresh()end
+state.skillMode="Perfect"
+label("Auto Generator: Perfect",7052,32)
+state.refreshSkillUI=function()state.skillMode="Perfect"end
 end
 
 -- Local custom event audio. No parry attempt is treated as a confirmed stun.
@@ -3183,7 +3180,15 @@ local presets={
     Splash={name="Всплеск",asset="rbxasset://sounds/impact_water.mp3",speed=1},
     SplashHigh={name="Быстрый всплеск",asset="rbxasset://sounds/impact_water.mp3",speed=1.4},
 }
-local presetOrder={"Ping","High","Low","Snap","SnapHigh","Bass","BassLow","Splash","SplashHigh"}
+local presetOrder={"Ping","Bass","BassLow","Splash","SplashHigh"}
+task.spawn(function()
+    local preload={}
+    for _,preset in pairs(presets)do
+        local sound=Instance.new("Sound");sound.SoundId=preset.asset;sound.Parent=folder;preload[#preload+1]=sound
+    end
+    pcall(function()game:GetService("ContentProvider"):PreloadAsync(preload)end)
+    for _,sound in ipairs(preload)do sound:Destroy()end
+end)
 local active,watches,rootConnections,lastEvent={},{},{},{}
 local daggerResultConnection,daggerResultRemote
 local recentSource,muted={},{}
@@ -3734,7 +3739,7 @@ state.playSelectedEmote=function(forceLocal,loopOverride)
             local ok=pcall(function()remote:FireServer(record and record.name or selected)end)
             nativeEmoteActive=ok;emoteCharacter=char
             status.Text=ok and "Запрос эмоции отправлен; ожидание подтверждения."or "Игровой обработчик отклонил вызов."
-            task.delay(2,function()
+            task.delay(.5,function()
                 if observer then observer:Disconnect();if emoteObserver==observer then emoteObserver=nil end end
                 if not state.alive or serial~=requestSerial or selected~=state.emoteName or confirmed then return end
                 if id then
@@ -3958,6 +3963,9 @@ local shaderPresets={
  Vibrant={name="Насыщенный",contrast=.12,saturation=.32,brightness=.01,tint={255,248,248},bloom=.16},
  Night={name="Ночной",contrast=.05,saturation=-.18,brightness=.14,tint={215,230,255},bloom=.04},
  Clear={name="Чёткий",contrast=.1,saturation=.02,brightness=.035,tint={255,255,255},bloom=0},
+ Neon={name="Neon",contrast=.2,saturation=.45,brightness=.01,tint={232,220,255},bloom=.32},
+ Sunset={name="Sunset",contrast=.12,saturation=.25,brightness=.02,tint={255,210,175},bloom=.2},
+ Realistic={name="Realistic",contrast=.14,saturation=.1,brightness=.015,tint={248,245,238},bloom=.16},
 }
 local shaderChoice,appliedShader,displayedShader
 local effects,tracks={},setmetatable({},{__mode="k"})
@@ -4253,7 +4261,7 @@ state.refreshPresentation=function()
 end
 toggle("shaders","Шейдеры",4550)
 shaderChoice=state.dropdown(4552,"Пресет",function()
-    local list={};for _,id in ipairs({"Soft","Cinema","Cold","Warm","Noir","Vibrant","Night","Clear"})do list[#list+1]={value=id,label=shaderPresets[id].name}end;return list
+    local list={};for _,id in ipairs({"Soft","Cinema","Cold","Warm","Noir","Vibrant","Night","Clear","Neon","Sunset","Realistic"})do list[#list+1]={value=id,label=shaderPresets[id].name}end;return list
 end,function()return state.shaderPreset end,function(value)state.shaderPreset=value;state.refreshPresentation()end,"shaders")
 label("Локальные цветокоррекция и мягкое свечение.",4592,28)
 toggle("backgroundEnabled","Своя картинка в меню",5776)
@@ -4408,7 +4416,7 @@ end
 do
 local ring=Instance.new("Frame");ring.Name="ParryFov";ring.BackgroundTransparency=1
 ring.Size=UDim2.fromScale(1,1);ring.Position=UDim2.fromOffset(0,0);ring.Visible=false;ring.Parent=crossGui
-local segments={};local segmentCount=144
+local segments={};local segmentCount=256
 for i=1,segmentCount do
     local segment=Instance.new("Frame");segment.Name="ParryRadiusSegment";segment.BorderSizePixel=0
     segment.AnchorPoint=Vector2.new(0.5,0.5);segment.Visible=false;segment.BackgroundColor3=Color3.fromRGB(15,10,25)
@@ -4980,8 +4988,8 @@ end
 
 -- Left navigation and responsive content layout.
 do
-local sections={"survival","killer","esp","config"}
-local pages,tabButtons,buckets,scrollPositions={},{},{survival={},killer={},esp={},config={}},{ }
+local sections={"survival","killer","exclusive","esp","config"}
+local pages,tabButtons,buckets,scrollPositions={},{},{survival={},killer={},exclusive={},esp={},config={}},{ }
 local hints={
     [182]="Нажимает в выбранной зоне скиллчека.",
     [522]="Растягивает 3D-вид. Разрешение не меняет.",
@@ -5010,12 +5018,12 @@ local shortLabels={
     [2868]="Скорость наведения: 1–40",[3154]="КОНФИГ",[4286]="Дальность ESP: 10–1500 м",
 }
 local function route(y)
-    if y==2490 or y==2493 or y==2493.5 or y==2494 or y==2495 or y==2496 or y==2497 then return "survival"end
+    if y>=9300 and y<9700 then return "survival"end
+    if (y>=230 and y<=560)or(y>=2410 and y<=2497)or(y>=2534 and y<=2576)or(y>=3600 and y<=3900)then return "exclusive"end
     if y>=7000 and y<9300 then return "survival"end
-    if y>=3600 and y<=3900 then return "survival"end
     if y>=6000 and y<7000 then return "esp"end
     if y>=5000 then return "config"end
-    if (y>=230 and y<=560)or(y>=920 and y<=1105)then return "esp"end
+    if y>=920 and y<=1105 then return "esp"end
     if y==52 or y==53 or y==53.5 or y==1105 or(y>=574 and y<=842)or y>=4000 then return "esp"end
     if(y>=96 and y<=182)or(y>=1340 and y<=1932)or(y>=2410 and y<=2482)then return "survival"end
     if(y>=2090 and y<=2350)or(y>=2534 and y<=2576)or(y>=2726 and y<=3024)then return "killer"end
@@ -5065,7 +5073,7 @@ for _,name in ipairs({"Roboto","Oswald","FredokaOne","Nunito","TitilliumWeb","Co
     if ok and font then fontPairs[name]={font,font}end
 end
 local themes={
-    Graphite={panel=Color3.fromRGB(15,16,23),button=Color3.fromRGB(27,29,40),text=Color3.fromRGB(236,237,245),muted=Color3.fromRGB(150,153,172)},
+    Graphite={panel=Color3.fromRGB(31,17,53),button=Color3.fromRGB(65,35,105),text=Color3.fromRGB(255,248,255),muted=Color3.fromRGB(213,191,238)},
     Midnight={panel=Color3.fromRGB(12,17,29),button=Color3.fromRGB(24,33,50),text=Color3.fromRGB(232,239,251),muted=Color3.fromRGB(155,175,201)},
     Light={panel=Color3.fromRGB(236,240,246),button=Color3.fromRGB(215,223,234),text=Color3.fromRGB(28,38,54),muted=Color3.fromRGB(75,92,115)},
 }
@@ -5073,26 +5081,30 @@ local groupsByPage={}
 state.groupIds={}
 local function groupFor(section,y)
     if section=="survival"then
+        if y>=9300 and y<9700 then return "emotes","Emotes",7 end
         if y>=3600 and y<=3900 then return "survivorProtection","Cheat Mode",5 end
-        if y>=9000 then return "customAudio","Кастомные звуки",7 end
-        if y>=8000 then return "customAudio","Кастомные звуки",7 end
-        if y>=7400 then return "skillchecks","Скиллчеки",1 end
-        if y>=7000 or y<200 then return "skillchecks","Скиллчеки",1 end
+        if y>=9000 then return "customAudio","Custom Sounds",7 end
+        if y>=8000 then return "customAudio","Custom Sounds",7 end
+        if y>=7400 then return "skillchecks","Skill Checks",1 end
+        if y>=7000 or y<200 then return "skillchecks","Skill Checks",1 end
         if y>=2410 then return "survivorProtection","Cheat Mode",5 end
-        return "dagger","Даггер",4
+        return "dagger","Dagger",4
     elseif section=="killer"then
-        if y>=2986 and y<=2988 then return "killerAimbot","AimBot маньяка",5 end
+        if y>=2986 and y<=2988 then return "killerAimbot","Killer AimBot",5 end
         if y>=2981 and y<2986 then return "veilSpear","Veil Spear",4 end
         if y>=2726 then return "hiddenM2","Hidden M2",3 end
         if y>=2534 then return "killerProtection","Cheat Mode",2 end
-        return "palletBreak","Палеты",1
+        return "palletBreak","Pallets",1
+    elseif section=="exclusive"then
+        if y>=230 and y<=560 then return "camera","Camera",3 end
+        if y>=2534 and y<=2576 then return "killerProtection","Killer Cheat Mode",2 end
+        return "survivorProtection","Survival Cheat Mode",1
     elseif section=="esp"then
-        if y>=4550 and y<=4700 then return "worldStyle","Мир и раунд",5 end
-        if y>=6000 then return "espColors","Цвета",6 end
-        if y>=4000 then return "worldEsp","Объекты",3 end
-        if y>=920 then return "screenHud","Экран",4 end
-        if y>=230 and y<=560 then return "camera","Камера",2 end
-        return "worldEsp","Объекты",3
+        if y>=4550 and y<=4700 then return "worldStyle","World and Round",5 end
+        if y>=6000 then return "espColors","Colors",6 end
+        if y>=4000 then return "worldEsp","Objects",3 end
+        if y>=920 then return "screenHud","Screen",4 end
+        return "worldEsp","Objects",3
     end
     if y==5882 then return "diagnostics","Диагностика",8 end
     if y>=9700 then return "utilities","Утилиты",9 end
@@ -5236,7 +5248,7 @@ local function selectSection(name)
     state.applyStyle()
 end
 state.selectSection=selectSection
-local tabLabels={survival="Выживший",killer="Убийца",esp="ESP",config="Настройки"}
+local tabLabels={survival="Survival",killer="Killer",exclusive="Exclusive",esp="ESP",config="Settings"}
 for i,name in ipairs(sections)do
     local tab=Instance.new("TextButton")
     tab.Name="Tab_"..name
