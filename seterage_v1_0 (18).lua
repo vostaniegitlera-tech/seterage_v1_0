@@ -67,7 +67,7 @@ local state = {
     uiFont = "Gotham", uiTheme = "Graphite", showHints = true,
     uiAccentColor = Color3.fromRGB(139,92,246), menuX = 0.5, menuY = 0.5,
 
-    espGenerators = false, espPumpkins = false, espWindows = false, espPallets = false, espHooks=false,
+    espGenerators = false, espPumpkins = false, espWindows = false, espPallets = false, espHooks=false, espAllObjects=false,
     espLabelsBelow=false,espGeneratorState=false,espPlayerState=false,
     killerDistance = false, survivorDistance = false, espRange = 500,
 
@@ -2349,7 +2349,7 @@ local profiles = {
 local candidates, objectMarks, playerMarks = {}, {}, {}
 local addedConnection, removedConnection
 local function hasObjectEsp()
-    return state.espGenerators or state.espPumpkins or state.espWindows or state.espPallets or state.espHooks
+    return state.espAllObjects or state.espGenerators or state.espPumpkins or state.espWindows or state.espPallets or state.espHooks
 end
 local CollectionService
 pcall(function()CollectionService=game:GetService("CollectionService")end)
@@ -2625,6 +2625,7 @@ local function showMark(mark,name,distance,kind,object)
     mark.text.Text=name..(state.espMeters[kind]and(" · ≈"..string.format("%.1f",distance).." м")or "")
 end
 label("ОБЪЕКТЫ НА КАРТЕ",4000,24)
+toggle("espAllObjects","All Recognised Objects",4033)
 toggle("espGenerators","Generator ESP",4034)
 toggle("espPumpkins","Pumpkin ESP",4076)
 toggle("espWindows","Window ESP",4118)
@@ -2659,18 +2660,21 @@ local function updateWorldEsp()
         resetWorldEsp()
     end
     local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local myHum=player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    local camera=Workspace.CurrentCamera
+    local origin=(root and myHum and myHum.Health>0 and root.Position)or(camera and camera.CFrame.Position)
     local counts={generators=0,pumpkins=0,windows=0,pallets=0,hooks=0}
     local keep={}
-    if anyObjects and root then
+    if anyObjects and origin then
         for item,kind in pairs(candidates) do
             if not item.Parent or not item:IsDescendantOf(Workspace) then
                 candidates[item]=nil
             else
                 local profile=profiles[kind]
-                if state[profile.field] then
+                if state.espAllObjects or state[profile.field] then
                     local part=anchor(item)
                     if part and part.Parent then
-                        local distance=metres((part.Position-root.Position).Magnitude)
+                        local distance=metres((part.Position-origin).Magnitude)
                         if distance<=state.espRange then
                             keep[item]=true;counts[kind]=counts[kind]+1
                             local mark=objectMarks[item]
@@ -2716,7 +2720,7 @@ local function updateWorldEsp()
     end
     for item,mark in pairs(objectMarks)do if not keep[item]then destroyMark(mark);objectMarks[item]=nil end end
     local keepPlayers={}
-    if root and (state.killerDistance or state.survivorDistance or(state.esp and state.espMeters.killerHighlight)) then
+    if origin and (state.killerDistance or state.survivorDistance or(state.esp and state.espMeters.killerHighlight)) then
         for _,who in ipairs(Players:GetPlayers())do
             local team=who.Team and who.Team.Name:lower()
             local killer=isKiller(who)
@@ -2726,7 +2730,7 @@ local function updateWorldEsp()
                 local target=char and char:FindFirstChild("HumanoidRootPart")
                 local hum=char and char:FindFirstChildOfClass("Humanoid")
                 if target and hum and hum.Health>0 then
-                    local distance=metres((target.Position-root.Position).Magnitude)
+                    local distance=metres((target.Position-origin).Magnitude)
                     if distance<=state.espRange then
                         keepPlayers[who]=true
                         local mark=playerMarks[who]
