@@ -565,9 +565,10 @@ connect(RunService.RenderStepped, function(dt)
         traceSkill("rearmed",needle,goal,nil,true)
     end
     previousNeedle,previousGoal=currentNeedle,currentGoal
-    traceSkill("sample",needle,goal,state.skillZoneSource,false)
-    if skillUsed or os.clock()-skillSentAt<.2 or Input:GetFocusedTextBox()then return end
     local relative=(currentNeedle-currentGoal)%360
+    local nearPerfect=state.skillMode=="Perfect" and relative>=85 and relative<=130 and not skillUsed
+    traceSkill("sample",needle,goal,state.skillZoneSource,nearPerfect)
+    if skillUsed or os.clock()-skillSentAt<.2 or Input:GetFocusedTextBox()then return end
     local allowed,reason=state.skillTargetAllowed(check,goal,relative)
     if not allowed then if reason then status.Text=reason end;return end
     skillSentAt=os.clock()
