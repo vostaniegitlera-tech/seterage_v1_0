@@ -758,8 +758,6 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     updateCamera()
 end)
 label("Presets simulate stretched 4:3 and 16:10.\nUI and screen resolution are unchanged.", 522, 38)
-toggle("perks","Killer Perk Info · LeenzHub",686)
-label("Requires LeenzHub and its Killer Perks Info to be enabled.",688,38)
 label("Highlight detects the Killer team.\nAuto skill checks require in-game testing.", 782, 60)
 
 local function overlay(name, width, height, position, anchor)
@@ -894,19 +892,7 @@ state.perkDiagnostics=function()
     return result
 end
 updateOverlays = function()
-    perkBox.Visible = state.perks
-    if not state.perks then return end
-    local ok,source=pcall(function()
-        local guiRoot=game:GetService("CoreGui"):FindFirstChild("NEX_KillerPerksGui")
-        local holder=guiRoot and guiRoot:FindFirstChild("Holder")
-        local panel=holder and holder:FindFirstChild("Panel")
-        return panel and panel:FindFirstChild("KillerPerksText")
-    end)
-    if ok and source and (source:IsA("TextLabel") or source:IsA("TextButton")) and source.Text~="" then
-        perkText.RichText=source.RichText;perkText.Text=source.Text
-    else
-        perkText.RichText=false;perkText.Text="Waiting for LeenzHub Killer Perks Info."
-    end
+    perkBox.Visible=false
 end
 
 local setMenuVisible
@@ -5117,7 +5103,6 @@ local function groupFor(section,y)
         if y>=2534 and y<=2576 then return "killerProtection","Killer Cheat Mode",2 end
         return "survivorProtection","Survival Cheat Mode",1
     elseif section=="esp"then
-        if y==686 or y==688 then return "killerPerksBridge","Killer Perk Info",8 end
         if y==4636 then return "nextMap","Next Map",6 end
         if y==4637 then return "nextKiller","Next Killer",7 end
         if y>=4550 and y<=4700 then return "worldStyle","World and Round",5 end
