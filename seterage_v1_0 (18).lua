@@ -2935,11 +2935,11 @@ do
     local map=overlay("NextMapHud",240,26,UDim2.fromScale(.75,.14),Vector2.new(.5,.5))
     map.BackgroundTransparency=1
     local mapText=overlayLabel(map,"Next map: no data",1,24);mapText.TextXAlignment=Enum.TextXAlignment.Left
-    mapText.TextStrokeTransparency=.2
+    mapText.TextStrokeTransparency=.2;mapText.TextColor3=Color3.fromRGB(110,205,255)
     local killer=overlay("NextKillerHud",240,26,UDim2.fromScale(.75,.22),Vector2.new(.5,.5))
     killer.BackgroundTransparency=1
     local killerText=overlayLabel(killer,"Next killer: no data",1,24);killerText.TextXAlignment=Enum.TextXAlignment.Left
-    killerText.TextStrokeTransparency=.2
+    killerText.TextStrokeTransparency=.2;killerText.TextColor3=Color3.fromRGB(225,150,255)
     state.nextMapHud,state.nextMapHudText=map,mapText
     state.nextKillerHud,state.nextKillerHudText=killer,killerText
 end
