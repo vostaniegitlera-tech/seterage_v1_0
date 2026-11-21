@@ -2932,10 +2932,14 @@ end
 
 -- The next-round card uses only values explicitly published by the game.
 do
-    local map=overlay("NextMapHud",240,42,UDim2.fromScale(.75,.14),Vector2.new(.5,.5))
-    local mapText=overlayLabel(map,"Next map: no data",4,34);mapText.TextXAlignment=Enum.TextXAlignment.Left
-    local killer=overlay("NextKillerHud",240,42,UDim2.fromScale(.75,.22),Vector2.new(.5,.5))
-    local killerText=overlayLabel(killer,"Next killer: no data",4,34);killerText.TextXAlignment=Enum.TextXAlignment.Left
+    local map=overlay("NextMapHud",240,26,UDim2.fromScale(.75,.14),Vector2.new(.5,.5))
+    map.BackgroundTransparency=1
+    local mapText=overlayLabel(map,"Next map: no data",1,24);mapText.TextXAlignment=Enum.TextXAlignment.Left
+    mapText.TextStrokeTransparency=.2
+    local killer=overlay("NextKillerHud",240,26,UDim2.fromScale(.75,.22),Vector2.new(.5,.5))
+    killer.BackgroundTransparency=1
+    local killerText=overlayLabel(killer,"Next killer: no data",1,24);killerText.TextXAlignment=Enum.TextXAlignment.Left
+    killerText.TextStrokeTransparency=.2
     state.nextMapHud,state.nextMapHudText=map,mapText
     state.nextKillerHud,state.nextKillerHudText=killer,killerText
 end
