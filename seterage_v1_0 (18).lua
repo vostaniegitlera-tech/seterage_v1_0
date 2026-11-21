@@ -2271,7 +2271,7 @@ local function validateConfig(text)
     if source.widgetPositions~=nil and type(source.widgetPositions)~="table"then error("Invalid widget positions")end
     local positions=source.widgetPositions or state.widgetPositions
     if type(positions)~="table"then error("Invalid widget positions")end
-    local allowedWidgets={performance=true,perks=true,crosshair=true,hiddenFov=true,menuButton=true,parryButton=true,panicButton=true,nextRoundHud=true}
+    local allowedWidgets={performance=true,perks=true,crosshair=true,hiddenFov=true,menuButton=true,parryButton=true,panicButton=true,nextRoundHud=true,nextMapHud=true,nextKillerHud=true}
     for id,position in pairs(positions)do
         if not allowedWidgets[id]or type(position)~="table"or #position~=2 then error("Invalid widget position")end
         for i=1,2 do if not finite(position[i])or position[i]<0 or position[i]>1 then error("Widget is off screen")end end
@@ -2932,10 +2932,12 @@ end
 
 -- The next-round card uses only values explicitly published by the game.
 do
-    local frame=overlay("NextRoundHud",240,70,UDim2.fromScale(.75,.18),Vector2.new(.5,.5))
-    local content=overlayLabel(frame,"Killer: no data\nMap: no data",4,62)
-    content.Name="NextRoundHudText";content.TextXAlignment=Enum.TextXAlignment.Left
-    state.nextRoundHud=frame;state.nextRoundHudText=content
+    local map=overlay("NextMapHud",240,42,UDim2.fromScale(.75,.14),Vector2.new(.5,.5))
+    local mapText=overlayLabel(map,"Next map: no data",4,34);mapText.TextXAlignment=Enum.TextXAlignment.Left
+    local killer=overlay("NextKillerHud",240,42,UDim2.fromScale(.75,.22),Vector2.new(.5,.5))
+    local killerText=overlayLabel(killer,"Next killer: no data",4,34);killerText.TextXAlignment=Enum.TextXAlignment.Left
+    state.nextMapHud,state.nextMapHudText=map,mapText
+    state.nextKillerHud,state.nextKillerHudText=killer,killerText
 end
 
 -- HUD drag is always available; a compact grip leaves the center of aim overlays clear.
@@ -2980,7 +2982,8 @@ createMover(perkBox,"perks","Perks",function()return state.perks end,{0.16,0.16}
 createMover(state.hiddenCircle,"hiddenFov","FOV Hidden M2",function()return state.hiddenAim and state.showHiddenFov and isKiller(player)end,{0.5,0.5})
 createMover(floatingMenu,"menuButton","Menu",function()return true end,{0.035,0.5})
 createMover(mobileParry,"parryButton","Parry",function()return Input.TouchEnabled end,{0.07,0.59})
-createMover(state.nextRoundHud,"nextRoundHud","Next Round",function()return state.showNextHud or state.nextRound or state.nextRoundMap or state.nextRoundKiller end,{0.75,0.18})
+createMover(state.nextMapHud,"nextMapHud","Next Map",function()return state.nextRoundMap end,{0.75,0.14})
+createMover(state.nextKillerHud,"nextKillerHud","Next Killer",function()return state.nextRoundKiller end,{0.75,0.22})
 
 state.applyHudPositions=function()
     if not state.alive then return end
@@ -4317,8 +4320,6 @@ do
 local ReplicatedStorage=game:GetService("ReplicatedStorage")
 local text=label("Next round: no published data.",4676,60)
 text.Name="NextRoundInfo"
-toggle("nextRound","Announced Killer / Map",4634)
-toggle("showNextHud","Next Round on Screen",4635)
 toggle("nextRoundMap","Next Map on Screen",4636)
 toggle("nextRoundKiller","Next Killer on Screen",4637)
 local mapPreparing=false
@@ -4424,10 +4425,10 @@ local elapsed=0
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.5 then return end;elapsed=0
     watchMapPreparation()
-    local showBoth=state.nextRound or state.showNextHud
-    local showMap=showBoth or state.nextRoundMap
-    local showKiller=showBoth or state.nextRoundKiller
-    state.nextRoundHud.Visible=showMap or showKiller
+    local showMap=state.nextRoundMap
+    local showKiller=state.nextRoundKiller
+    state.nextMapHud.Visible=showMap
+    state.nextKillerHud.Visible=showKiller
     if not showMap and not showKiller then text.Text="Next round: disabled.";return end
     local killer=read({"NextKiller","NextKillerName","UpcomingKiller"})
     local map=read({"NextMap","NextMapName","UpcomingMap"})
@@ -4439,7 +4440,8 @@ connect(RunService.Heartbeat,function(dt)
     end
     local value=table.concat(lines,"\n")
     text.Text="Game data\n"..value
-    state.nextRoundHudText.Text="Next round · game data\n"..value
+    state.nextKillerHudText.Text=killer and("Next killer: "..killer)or bestKillerChance()or "Next killer: no data"
+    state.nextMapHudText.Text=map and("Next map: "..map)or(preparing and("Round map: "..preparing)or "Next map: no data")
 end)
 end
 
@@ -5130,6 +5132,8 @@ local function groupFor(section,y)
         if y>=2534 and y<=2576 then return "killerProtection","Killer Cheat Mode",2 end
         return "survivorProtection","Survival Cheat Mode",1
     elseif section=="esp"then
+        if y==4636 then return "nextMap","Next Map",6 end
+        if y==4637 then return "nextKiller","Next Killer",7 end
         if y>=4550 and y<=4700 then return "worldStyle","World and Round",5 end
         if y>=6000 then return "espColors","Colors",6 end
         if y>=4000 then return "worldEsp","Objects",3 end
