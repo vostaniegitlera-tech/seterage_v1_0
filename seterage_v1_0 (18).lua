@@ -1357,13 +1357,34 @@ label("AUTO DAGGER / PARRY", 1340, 24)
 toggle("parry", "Auto Parry", 1370)
 toggle("antiFakeHit","Anti Fake Hit · test",1370.1)
 do
-local watchers,elapsed,lastInput={},0,0
+local watchers,elapsed={},0
+local crouchSession
+local function releaseCrouch()
+    local session=crouchSession;crouchSession=nil
+    if not session then return end
+    if session.stopped then session.stopped:Disconnect()end
+    if not virtualInput then return end
+    if session.toggle then
+        pcall(function()virtualInput:SendKeyEvent(false,session.key,false,game)end)
+        task.delay(.05,function()
+            if not crouchSession and player.Character==session.character and session.character:GetAttribute("Crouching")==true
+                and not Input:IsKeyDown(session.key)then
+                pcall(function()virtualInput:SendKeyEvent(true,session.key,false,game)end)
+                task.delay(.03,function()pcall(function()virtualInput:SendKeyEvent(false,session.key,false,game)end)end)
+            end
+        end)
+    else
+        pcall(function()virtualInput:SendKeyEvent(false,session.key,false,game)end)
+    end
+end
 local function clearWatchers()
     for who,entry in pairs(watchers)do entry.connection:Disconnect();watchers[who]=nil end
+    releaseCrouch()
 end
 connect(RunService.Heartbeat,function(dt)
     elapsed=elapsed+dt;if elapsed<.25 then return end;elapsed=0
     if not state.alive or not state.abyssAutoCrouch then clearWatchers();return end
+    if crouchSession and (player.Character~=crouchSession.character or not crouchSession.attacker.Parent)then releaseCrouch()end
     local keep={}
     for _,who in ipairs(Players:GetPlayers())do
         local char=who.Character
@@ -1375,7 +1396,7 @@ connect(RunService.Heartbeat,function(dt)
                 if watchers[who]then watchers[who].connection:Disconnect()end
                 local connection=animator.AnimationPlayed:Connect(function(track)
                     local id=track.Animation and track.Animation.AnimationId:match("(%d+)$")
-                    if not state.alive or not state.abyssAutoCrouch or id~="100014992013740" or not virtualInput or os.clock()-lastInput<1 then return end
+                    if not state.alive or not state.abyssAutoCrouch or id~="100014992013740" or not virtualInput or crouchSession then return end
                     local mine=player.Character;local myRoot=mine and mine:FindFirstChild("HumanoidRootPart")
                     local theirRoot=char and char:FindFirstChild("HumanoidRootPart")
                     if not myRoot or not theirRoot or (myRoot.Position-theirRoot.Position).Magnitude>30 then return end
@@ -1383,9 +1404,13 @@ connect(RunService.Heartbeat,function(dt)
                     local keyName=player:GetAttribute("kb_crouch") or "LeftControl"
                     local key=type(keyName)=="string" and Enum.KeyCode[keyName] or nil
                     if not key or key==Enum.KeyCode.Unknown or Input:IsKeyDown(key)then return end
-                    lastInput=os.clock()
                     local ok=pcall(function()virtualInput:SendKeyEvent(true,key,false,game)end)
-                    if ok then task.delay(.12,function()pcall(function()virtualInput:SendKeyEvent(false,key,false,game)end)end) end
+                    if ok then
+                        local session={character=mine,attacker=char,key=key,toggle=player:GetAttribute("crouchtoggle")==true}
+                        crouchSession=session
+                        session.stopped=track.Stopped:Connect(function()if crouchSession==session then releaseCrouch()end end)
+                        if session.toggle then task.delay(.03,function()pcall(function()virtualInput:SendKeyEvent(false,key,false,game)end)end)end
+                    end
                 end)
                 watchers[who]={animator=animator,connection=connection}
             end
