@@ -758,6 +758,8 @@ numberInput(484, 1.2, 0.5, 2, function(v)
     updateCamera()
 end)
 label("Presets simulate stretched 4:3 and 16:10.\nUI and screen resolution are unchanged.", 522, 38)
+toggle("perks","Killer Perk Info · LeenzHub",686)
+label("Requires LeenzHub and its Killer Perks Info to be enabled.",688,38)
 label("Highlight detects the Killer team.\nAuto skill checks require in-game testing.", 782, 60)
 
 local function overlay(name, width, height, position, anchor)
@@ -892,40 +894,19 @@ state.perkDiagnostics=function()
     return result
 end
 updateOverlays = function()
-    perkBox.Visible = false
+    perkBox.Visible = state.perks
     if not state.perks then return end
-    local rows, killerCount = {}, 0
-    local results=game:GetService("ReplicatedStorage"):FindFirstChild("MatchResults")
-    local resultRows={}
-    if results and results:GetAttribute("Ready")==true then
-        for _,entry in ipairs(results:GetChildren())do
-            if entry:GetAttribute("IsKiller")==true then
-                local raw=entry:GetAttribute("Perks")
-                local ok,perks=pcall(function()return game:GetService("HttpService"):JSONDecode(raw)end)
-                local names={}
-                if ok and type(perks)=="table"then
-                    for _,perk in ipairs(perks)do
-                        if type(perk)=="table" and type(perk.name)=="string" and perk.name~="" then
-                            names[#names+1]=perk.name..(type(perk.level)=="number" and (" · level "..perk.level) or "")
-                        end
-                    end
-                end
-                if #names>0 then
-                    resultRows[#resultRows+1]=tostring(entry:GetAttribute("Username") or entry.Name).." — completed match results\n"..table.concat(names,"\n")
-                end
-            end
-        end
+    local ok,source=pcall(function()
+        local guiRoot=game:GetService("CoreGui"):FindFirstChild("NEX_KillerPerksGui")
+        local holder=guiRoot and guiRoot:FindFirstChild("Holder")
+        local panel=holder and holder:FindFirstChild("Panel")
+        return panel and panel:FindFirstChild("KillerPerksText")
+    end)
+    if ok and source and (source:IsA("TextLabel") or source:IsA("TextButton")) and source.Text~="" then
+        perkText.RichText=source.RichText;perkText.Text=source.Text
+    else
+        perkText.RichText=false;perkText.Text="Waiting for LeenzHub Killer Perks Info."
     end
-    for _, who in ipairs(Players:GetPlayers()) do
-        if who ~= player and isKiller(who) then
-            killerCount = killerCount + 1
-            local values = equippedPerks(who)
-            table.insert(rows, who.DisplayName .. " (@" .. who.Name .. ")")
-            table.insert(rows, #values > 0 and table.concat(values, "\n") or "Perk data unavailable during the match.")
-        end
-    end
-    for _,row in ipairs(resultRows)do rows[#rows+1]=row end
-    perkText.Text = #rows > 0 and table.concat(rows, "\n\n") or "No perk data."
 end
 
 local setMenuVisible
@@ -5136,6 +5117,7 @@ local function groupFor(section,y)
         if y>=2534 and y<=2576 then return "killerProtection","Killer Cheat Mode",2 end
         return "survivorProtection","Survival Cheat Mode",1
     elseif section=="esp"then
+        if y==686 or y==688 then return "killerPerksBridge","Killer Perk Info",8 end
         if y==4636 then return "nextMap","Next Map",6 end
         if y==4637 then return "nextKiller","Next Killer",7 end
         if y>=4550 and y<=4700 then return "worldStyle","World and Round",5 end
